@@ -1,0 +1,43 @@
+﻿AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  [Project Name] Backend
+  Serverless API (FastAPI) + PostgreSQL (RDS).
+
+Parameters:
+  AppEnv:
+    Type: String
+    Description: Deployment Environment (dev, staging, prod)
+    AllowedValues:
+      - dev
+      - staging
+      - prod
+    Default: dev
+
+Resources:
+  # 1. API Gateway + Lambda (FastAPI)
+  FastApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: functions.lambda_handler.handler  # Mangum adapter
+      Runtime: python3.11
+      Timeout: 30
+      MemorySize: 256
+      Environment:
+        Variables:
+          APP_ENV: !Ref AppEnv
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            Path: /{proxy+}
+            Method: ANY
+
+  # 2. Database (Postgres) - Optional / Placeholder
+  # Ideally, use a separate nested stack for persistence to prevent accidental deletion.
+
+Outputs:
+  ApiUrl:
+    Description: "API Gateway Endpoint URL"
+    Value: !Sub "https://.execute-api..amazonaws.com/Prod/"
