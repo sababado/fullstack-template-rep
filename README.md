@@ -28,6 +28,9 @@ Copier asks for:
 | Automated Claude PR review | Adds `.github/workflows/claude-review.yml` |
 
 Then follow the generated project's `docs/dev_guides/onboarding/1_FIRST_TIME_SETUP.md`.
+If you'll use the agent kit, do the one-time setup in its `docs/CONTRIBUTING.md` too:
+connect the tracker you chose (the planning skills read and write epics and stories
+there), create its labels, and replace the example personas.
 
 ## Keep a project up to date
 
@@ -50,7 +53,7 @@ version and merges the changes into your project. Tag template releases
 | Tests | pytest (unit + integration against real Postgres, isolated by transaction), Vitest, coverage floors in every workspace, a contract test between frontend limits and the API schema |
 | AWS | SAM: HTTP API + JWT authorizer, Lambda (arm64, SnapStart), RDS PostgreSQL 18 in private subnets, Secrets Manager rotation, S3 + CloudFront with CSP, alarms; a bootstrap stack for GitHub OIDC deploys |
 | CI/CD | PR checks with one required gate job, branch-based deploys (develop/staging/main), CodeQL, dependency audit, Dependabot |
-| AI agents | `CLAUDE.md` rules, per-area `Agents.md` guides with verification checklists, decision records, implementation-plan conventions, and an agent workflow (see `docs/CONTRIBUTING.md` in a generated project) |
+| AI agents | `CLAUDE.md` rules and per-area `Agents.md` guides with verification checklists; a Claude Code kit in `.claude/`: pipeline skills (`/plan-product`, `/plan-tech`, `/prep`, `/build`, `/review`, `/write-docs`, `/address-pr-comments`), specialist teams as registered subagents and roles, an unattended `/offshore` run with a guardrail hook, and a tracker adapter; `docs/CONTRIBUTING.md` explains contributing by hand and with the agents |
 
 The reasoning behind the main choices is in
 [template/docs/decisions/0001-stack-choices.md](template/docs/decisions/0001-stack-choices.md).

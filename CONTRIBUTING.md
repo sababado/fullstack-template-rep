@@ -90,7 +90,8 @@ back (and why) in `template/docs/decisions/0001-stack-choices.md`.
 
 The agent kit (`template/.claude/`) is for generated projects. To test a change,
 render a sample, open it in Claude Code, and run the skill you changed there (for
-example `/plan-tech` on a small feature). Keep kit files free of project-specific
+example `/plan-tech` on a small feature). After changing the hook, run
+`bash template/.claude/hooks/test-guardrails.sh`. Keep kit files free of project-specific
 facts: those belong in `reference/project.md.jinja` or `reference/tracker.md.jinja`.
 The generated project's `docs/CONTRIBUTING.md` explains the kit to its users; update it
 when the kit's skills or teams change.

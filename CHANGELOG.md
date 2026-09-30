@@ -21,4 +21,8 @@ versions: [Semantic Versioning](https://semver.org/), tagged `vX.Y.Z`.
   CodeQL, dependency audit, Dependabot, optional Claude review.
 - Documentation and agent rules for generated projects, plus an agent kit (skills,
   subagents, roles) with a tracker adapter for Linear, GitHub Issues, or no tracker.
+- `/offshore` for unattended plan-to-PR runs, with a PreToolUse guardrail hook wired in
+  `.claude/settings.json`, and model and effort tiers for every skill and subagent.
+- `docs/CONTRIBUTING.md` in generated projects: contributing by hand and with the agent
+  kit (setup per tracker, the pipeline, the teams, what people own, changing the kit).
 - Template CI that renders the template and runs a generated project's checks.
