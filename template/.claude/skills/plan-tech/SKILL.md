@@ -1,9 +1,9 @@
 ---
 name: plan-tech
-description: Turns an epic in the tracker (or a feature description) into a phased implementation plan in .implementation_plans/<plan>/, with each phase sized to one reviewable PR and mapped to the stories it implements. Run it after /plan-product and before /prep.
+description: "Turns an epic in the tracker (or a feature description) into a phased implementation plan in .implementation_plans/<plan>/, with each phase sized to one reviewable PR and mapped to the stories it implements. Run it after /plan-product and before /prep. Pipeline step: run it when a person types the command or /offshore calls it, not for ordinary requests."
 argument-hint: "<epic reference or name | story ID | feature description>"
-disable-model-invocation: true
-model: sonnet
+model: fable
+effort: high
 ---
 
 # /plan-tech

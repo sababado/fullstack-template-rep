@@ -47,3 +47,6 @@ playwright-report/
 # Local overrides
 docker-compose.override.yml
 .import_linter_cache/
+
+# /offshore run state (sentinel, logs); see .claude/skills/offshore
+.offshore/

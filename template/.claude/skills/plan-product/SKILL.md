@@ -1,9 +1,9 @@
 ---
 name: plan-product
-description: Turns a feature description into an epic and user stories with acceptance criteria in the tracker, before any technical planning. Run it with a feature idea, with --epic to add stories to an existing epic, or with --review to audit a plan for user flows no story covers.
+description: "Turns a feature description into an epic and user stories with acceptance criteria in the tracker, before any technical planning. Run it with a feature idea, with --epic to add stories to an existing epic, or with --review to audit a plan for user flows no story covers. Pipeline step: run it when a person types the command or /offshore calls it, not for ordinary requests."
 argument-hint: "<feature description> | --epic <ref> <use case> | --review <plan-name>"
-disable-model-invocation: true
 model: sonnet
+effort: high
 ---
 
 # /plan-product

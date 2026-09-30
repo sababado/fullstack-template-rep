@@ -2,7 +2,8 @@
 name: domain-expert
 description: "Spawned by /plan-product Step 2f. Reads CLAUDE.md, docs/SECURITY.md, docs/feature-map.md, the Accepted records in docs/decisions/, the relevant Agents.md, and existing code, then returns a Domain Constraints Brief: the permission, security, architecture, and decision-record constraints that story acceptance criteria must account for. Read-only; does not write stories."
 tools: Read, Grep, Glob
-model: opus
+model: fable
+effort: high
 ---
 
 # Domain Expert

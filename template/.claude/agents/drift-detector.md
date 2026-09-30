@@ -3,6 +3,7 @@ name: drift-detector
 description: "Spawned by /prep Step 6a. Mechanically checks every claim in a phase document (files to create and modify, symbols, endpoints, naming conventions, README tracker status, i18n keys, UI kit components, migration numbers, cross-doc links) against the codebase and returns a structured drift report. Does not judge design. No Edit or Write tools; its instructions limit Bash to inspection."
 tools: Read, Grep, Glob, Bash
 model: sonnet
+effort: medium
 ---
 
 # Drift Detector

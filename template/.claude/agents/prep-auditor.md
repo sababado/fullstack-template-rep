@@ -2,7 +2,8 @@
 name: prep-auditor
 description: "Spawned by /prep Step 6c, after drift-detector returns. Adversarially audits a phase document for unstated assumptions, failure modes, UX gaps, blast radius, security gaps, and implementation ambiguity, and returns a one-line-per-finding punch list (HIGH/MED/LOW with an action tag). Takes the orchestrator's ground-truth findings and the drift report as input so it doesn't repeat them. Read-only."
 tools: Read, Grep, Glob
-model: sonnet
+model: opus
+effort: high
 ---
 
 # Prep Auditor

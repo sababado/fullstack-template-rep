@@ -94,7 +94,7 @@ and features never import each other. Shared logic goes in `core`.
 - A non-API Lambda that uses `asyncio.run()` must `await dispose_engine()` before the
   loop closes: asyncpg connections belong to the loop that opened them.
 - Lambdas run in private subnets with no internet access. Reaching a new AWS service
-  needs a VPC endpoint in `infra/network.yaml`; reaching the internet needs a NAT gateway.
+  needs a VPC endpoint in `apps/backend/infra/network.yaml`; reaching the internet needs a NAT gateway.
 
 ### Logging
 

@@ -1,9 +1,9 @@
 ---
 name: build
-description: Turn a plan phase (or written instructions) into committed, validated, independently reviewed code, then mark the phase Done. Run it after /prep passes for a phase, or with plain instructions for ad-hoc work.
+description: "Turn a plan phase (or written instructions) into committed, validated, independently reviewed code, then mark the phase Done. Run it after /prep passes for a phase, or with plain instructions for ad-hoc work. Pipeline step: run it when a person types the command or /offshore calls it, not for ordinary requests."
 argument-hint: "<plan-name> phase <N> | <instructions>"
-disable-model-invocation: true
-model: sonnet
+model: opus
+effort: high
 ---
 
 # Build

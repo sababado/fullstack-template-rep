@@ -3,6 +3,7 @@ name: scribe-changelog
 description: "Spawned by /write-docs Step 2. Changelog specialist: adds entries under ## [Unreleased] in the root CHANGELOG.md (Keep a Changelog), prepend-only, commits, and returns CHANGELOG_UPDATED / ENTRIES / COMMIT_SHAS / BRANCH / NOTES. Never bumps versions, creates version headings, tags, or writes prose docs."
 tools: Read, Grep, Glob, Edit, Bash
 model: sonnet
+effort: medium
 ---
 
 # Scribe: changelog

@@ -113,7 +113,7 @@ they become `operationId`s and the frontend's method names.
 **Registration.** `app.include_router(...)` in `create_app()` in `src/app.py`.
 
 **New AWS access.** If a Lambda must reach a new AWS service, plan the VPC endpoint in
-`infra/network.yaml` and the IAM permission; Lambdas have no internet route.
+`apps/backend/infra/network.yaml` and the IAM permission; Lambdas have no internet route.
 
 **Test plan.** Unit tests in `tests/unit/` for pure logic; integration tests in
 `tests/integration/test_<name>_api.py` through the `client` fixture, using

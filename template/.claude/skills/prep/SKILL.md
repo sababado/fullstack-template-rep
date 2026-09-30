@@ -1,9 +1,9 @@
 ---
 name: prep
-description: Validates one phase of an implementation plan before /build. Checks every claim against the codebase, runs drift, decision, and adversarial reviews, spot-checks story coverage, and returns READY TO IMPLEMENT, NEEDS REVISION, or BLOCKED.
+description: "Validates one phase of an implementation plan before /build. Checks every claim against the codebase, runs drift, decision, and adversarial reviews, spot-checks story coverage, and returns READY TO IMPLEMENT, NEEDS REVISION, or BLOCKED. Pipeline step: run it when a person types the command or /offshore calls it, not for ordinary requests."
 argument-hint: "[plan-name] [phase <id>]"
-disable-model-invocation: true
 model: sonnet
+effort: high
 ---
 
 # /prep

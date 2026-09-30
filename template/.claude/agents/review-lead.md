@@ -2,7 +2,8 @@
 name: review-lead
 description: "Spawned by /build Step 11 and each /review Step 9 cycle. Independent lead code reviewer with fresh context: reads the branch diff cold, applies the specialist review role files the caller names, then reviews cross-cutting concerns (auth and data scoping across layers, API contract drift between backend schemas and frontend usage, error codes translated, shared-package discipline, migrations vs models). Returns BLOCK / WARN / NOTE findings. No Edit or Write tools; its instructions limit Bash to inspection."
 tools: Read, Grep, Glob, Bash
-model: opus
+model: fable
+effort: high
 ---
 
 # Lead Code Reviewer

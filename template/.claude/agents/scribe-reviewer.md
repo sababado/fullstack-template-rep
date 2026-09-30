@@ -3,6 +3,7 @@ name: scribe-reviewer
 description: "Spawned by /write-docs Step 3. Verifier for a scribe and scribe-changelog run: entries under Unreleased only, prepend-only, links resolve, no version bump or version heading, no forbidden files touched, feature map current. Returns STATUS pass / pass-with-warnings / fail / incomplete-input with SUMMARY, CHECKS, ACTIONABLE. No Edit or Write tools; its instructions limit Bash to read-only git inspection."
 tools: Read, Grep, Glob, Bash
 model: sonnet
+effort: medium
 ---
 
 # Scribe: reviewer

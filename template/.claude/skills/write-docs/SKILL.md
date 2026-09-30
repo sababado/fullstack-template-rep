@@ -1,9 +1,9 @@
 ---
 name: write-docs
-description: Update the docs and the changelog after a change, by running the scribe, scribe-changelog, and scribe-reviewer subagents in sequence. Run it after a feature or phase is built, or when docs have fallen behind the code.
+description: "Update the docs and the changelog after a change, by running the scribe, scribe-changelog, and scribe-reviewer subagents in sequence. Run it after a feature or phase is built, or when docs have fallen behind the code. Pipeline step: run it when a person types the command or /offshore calls it, not for ordinary requests."
 argument-hint: "<what changed: plan name, phase, PR number, or a description>"
-disable-model-invocation: true
 model: sonnet
+effort: medium
 ---
 
 # Write docs

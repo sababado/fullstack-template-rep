@@ -1,9 +1,9 @@
 ---
 name: review
-description: Review a branch (or the current plan phase) with the specialist reviewers, check it against Accepted decisions, optionally run sequential independent review cycles, and give a merge verdict. Run it before opening or merging a PR.
+description: "Review a branch (or the current plan phase) with the specialist reviewers, check it against Accepted decisions, optionally run sequential independent review cycles, and give a merge verdict. Run it before opening or merging a PR. Pipeline step: run it when a person types the command or /offshore calls it, not for ordinary requests."
 argument-hint: "[phase [N] [of <plan>]] [against <branch>] [just <area>] [<N> cycles] [--full]"
-disable-model-invocation: true
 model: sonnet
+effort: high
 ---
 
 # Review
@@ -29,7 +29,8 @@ $ARGUMENTS
   deliverables check runs in cycle 1 only.
 - **On-demand review:** everything else, including empty input.
 
-**Base branch override:** "against main", "vs staging", "compared to develop". If none,
+**Base override:** "against main", "vs staging", "compared to develop", or a commit
+("against 1a2b3c4"; `/offshore` passes the commit the phase started from). If none,
 detect it in Step 2.
 
 **Scope restriction:** "just backend", "frontend only", "docs only", "backend and
@@ -42,7 +43,7 @@ frontend". If none, the changed files decide in Step 5.
 
 ## Step 2: Detect the base branch
 
-Use the branch the person named. Otherwise try, in order:
+Use the branch or commit the person named. Otherwise try, in order:
 
 1. An open PR for the current branch: `gh pr view --json baseRefName -q '.baseRefName'`.
    Skip this if `gh` isn't available.

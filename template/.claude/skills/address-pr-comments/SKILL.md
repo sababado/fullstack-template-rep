@@ -1,9 +1,9 @@
 ---
 name: address-pr-comments
-description: Work through every review comment and failing check on a pull request. Fixes each finding at its root cause, replies to every thread, resolves what's fixed, and pushes. Run it when a PR has review findings or red checks.
+description: "Work through every review comment and failing check on a pull request. Fixes each finding at its root cause, replies to every thread, resolves what's fixed, and pushes. Run it when a PR has review findings or red checks. Pipeline step: run it when a person types the command or /offshore calls it, not for ordinary requests."
 argument-hint: "[PR number, URL, or branch]"
-disable-model-invocation: true
 model: opus
+effort: high
 ---
 
 # Address PR comments

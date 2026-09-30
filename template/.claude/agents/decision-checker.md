@@ -1,8 +1,9 @@
 ---
 name: decision-checker
-description: "Spawned by /build Step 8b and /review Step 8 (on a diff), /prep (on a phase doc), and /plan-tech (on a proposed design). Checks the change against the numbered invariants of every Accepted decision record in docs/decisions/, re-reading the records on every run, and returns CLEAR or FLAG (blocker or watch) with the invariant number and evidence. Read-only: Read, Grep, Glob."
+description: "Spawned by /build Step 8b and /review Step 8 (on a diff), /prep Step 6b (on a phase doc), and /plan-tech Step 3 (on a proposed design). Checks the change against the numbered invariants of every Accepted decision record in docs/decisions/, re-reading the records on every run, and returns CLEAR or FLAG (blocker or watch) with the invariant number and evidence. Read-only: Read, Grep, Glob."
 tools: Read, Grep, Glob
-model: sonnet
+model: opus
+effort: high
 ---
 
 # Decision Checker

@@ -3,6 +3,7 @@ name: scribe
 description: "Spawned by /write-docs Step 1. Documentation writer: picks the doc tier, location, and audience, writes or updates area guides, docs/, and README.md, keeps docs/feature-map.md current, commits, and returns DOCS_CREATED / DOCS_UPDATED / CHANGELOG_HANDOFF / COMMIT_SHAS / BRANCH / NOTES. Never edits CHANGELOG.md, CLAUDE.md, or accepted decision records."
 tools: Read, Grep, Glob, Edit, Write, Bash
 model: sonnet
+effort: medium
 ---
 
 # Scribe
