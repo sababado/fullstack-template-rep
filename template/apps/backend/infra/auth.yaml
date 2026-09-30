@@ -1,0 +1,103 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  Cognito user pool and app client for the web app (authorization code + PKCE,
+  no client secret). Users are invited by an admin; see
+  docs/runbooks/user-management.md to allow self sign-up.
+
+Parameters:
+  ProjectSlug:
+    Type: String
+  AppEnv:
+    Type: String
+    AllowedValues: [dev, staging, prod]
+  FrontendUrl:
+    Type: String
+
+Conditions:
+  IsDev: !Equals [!Ref AppEnv, dev]
+  IsProd: !Equals [!Ref AppEnv, prod]
+
+Resources:
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub '${ProjectSlug}-${AppEnv}'
+      UsernameAttributes: [email]
+      AutoVerifiedAttributes: [email]
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: true
+      AccountRecoverySetting:
+        RecoveryMechanisms:
+          - Name: verified_email
+            Priority: 1
+      MfaConfiguration: OPTIONAL
+      EnabledMfas: [SOFTWARE_TOKEN_MFA]
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 12
+          RequireLowercase: true
+          RequireUppercase: true
+          RequireNumbers: true
+          RequireSymbols: false
+      DeletionProtection: !If [IsProd, ACTIVE, INACTIVE]
+
+  UserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      UserPoolId: !Ref UserPool
+      # Prefix domains must be globally unique; the account ID makes that likely.
+      Domain: !Sub '${ProjectSlug}-${AppEnv}-${AWS::AccountId}'
+      ManagedLoginVersion: 2
+
+  ManagedLoginBranding:
+    Type: AWS::Cognito::ManagedLoginBranding
+    Properties:
+      UserPoolId: !Ref UserPool
+      ClientId: !Ref WebClient
+      UseCognitoProvidedValues: true
+
+  WebClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: web
+      UserPoolId: !Ref UserPool
+      GenerateSecret: false
+      AllowedOAuthFlowsUserPoolClient: true
+      AllowedOAuthFlows: [code]
+      AllowedOAuthScopes: [openid, email, profile]
+      SupportedIdentityProviders: [COGNITO]
+      CallbackURLs: !If
+        - IsDev
+        - [!Sub '${FrontendUrl}/auth/callback', 'http://localhost:5173/auth/callback']
+        - [!Sub '${FrontendUrl}/auth/callback']
+      LogoutURLs: !If
+        - IsDev
+        - [!Ref FrontendUrl, 'http://localhost:5173']
+        - [!Ref FrontendUrl]
+      ExplicitAuthFlows: [ALLOW_REFRESH_TOKEN_AUTH]
+      PreventUserExistenceErrors: ENABLED
+      EnableTokenRevocation: true
+      AccessTokenValidity: 60
+      IdTokenValidity: 60
+      RefreshTokenValidity: 30
+      TokenValidityUnits:
+        AccessToken: minutes
+        IdToken: minutes
+        RefreshToken: days
+
+  AdminGroup:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties:
+      UserPoolId: !Ref UserPool
+      GroupName: admin
+      Description: Administrators (checked with core.auth.require_group("admin"))
+
+Outputs:
+  UserPoolId:
+    Value: !Ref UserPool
+  UserPoolClientId:
+    Value: !Ref WebClient
+  OidcAuthority:
+    Value: !Sub 'https://cognito-idp.${AWS::Region}.amazonaws.com/${UserPool}'
+  CognitoDomain:
+    Value: !Sub 'https://${UserPoolDomain}.auth.${AWS::Region}.amazoncognito.com'

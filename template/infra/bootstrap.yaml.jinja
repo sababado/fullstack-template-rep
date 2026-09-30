@@ -1,0 +1,158 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  One-time setup per AWS account: lets GitHub Actions deploy this project with
+  short-lived OIDC credentials. Deploy it by hand (docs/runbooks/aws-bootstrap.md):
+    aws cloudformation deploy --template-file infra/bootstrap.yaml \
+      --stack-name {{ project_slug }}-bootstrap --capabilities CAPABILITY_NAMED_IAM
+
+Parameters:
+  ProjectSlug:
+    Type: String
+    Default: {{ project_slug }}
+  GitHubRepository:
+    Type: String
+    Default: {{ github_repository }}
+    Description: owner/name. Only this repository's GitHub Environments can assume the deploy role.
+  CreateGitHubOidcProvider:
+    Type: String
+    AllowedValues: ['true', 'false']
+    Default: 'true'
+    Description: An account has one GitHub OIDC provider; set false if another stack already created it.
+
+Conditions:
+  CreateOidcProvider: !Equals [!Ref CreateGitHubOidcProvider, 'true']
+
+Resources:
+  GitHubOidcProvider:
+    Type: AWS::IAM::OIDCProvider
+    Condition: CreateOidcProvider
+    Properties:
+      Url: https://token.actions.githubusercontent.com
+      ClientIdList: [sts.amazonaws.com]
+
+  # SAM uploads packaged templates and Lambda code here.
+  ArtifactsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      LifecycleConfiguration:
+        Rules:
+          - Id: expire-artifacts
+            Status: Enabled
+            ExpirationInDays: 90
+
+  # CloudFormation acts as this role while creating stack resources. The
+  # GitHub role can only hand stacks to it; it can't create resources itself.
+  CloudFormationExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${ProjectSlug}-cfn-execution'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: cloudformation.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/PowerUserAccess
+      Policies:
+        - PolicyName: project-iam
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              # IAM only for this project's roles (stack-generated role names
+              # start with the stack name, which starts with the slug).
+              - Effect: Allow
+                Action: 'iam:*'
+                Resource:
+                  - !Sub 'arn:aws:iam::${AWS::AccountId}:role/${ProjectSlug}-*'
+                  - !Sub 'arn:aws:iam::${AWS::AccountId}:policy/${ProjectSlug}-*'
+              - Effect: Allow
+                Action: iam:CreateServiceLinkedRole
+                Resource: '*'
+
+  GitHubDeployRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${ProjectSlug}-github-deploy'
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !Sub 'arn:aws:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com'
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+              # Deploy jobs run in a GitHub Environment, so the token's subject
+              # names the environment. Restrict which branches may deploy to
+              # each environment in the repository settings.
+              StringLike:
+                token.actions.githubusercontent.com:sub:
+                  - !Sub 'repo:${GitHubRepository}:environment:dev'
+                  - !Sub 'repo:${GitHubRepository}:environment:staging'
+                  - !Sub 'repo:${GitHubRepository}:environment:prod'
+      Policies:
+        - PolicyName: deploy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: ProjectStacks
+                Effect: Allow
+                Action: 'cloudformation:*'
+                Resource: !Sub 'arn:aws:cloudformation:*:${AWS::AccountId}:stack/${ProjectSlug}-*/*'
+              - Sid: SamTransform
+                Effect: Allow
+                Action: cloudformation:CreateChangeSet
+                Resource: 'arn:aws:cloudformation:*:aws:transform/Serverless-2016-10-31'
+              - Sid: TemplateChecks
+                Effect: Allow
+                Action: [cloudformation:ValidateTemplate, cloudformation:GetTemplateSummary]
+                Resource: '*'
+              - Sid: PassExecutionRole
+                Effect: Allow
+                Action: iam:PassRole
+                Resource: !GetAtt CloudFormationExecutionRole.Arn
+              - Sid: Artifacts
+                Effect: Allow
+                Action: [s3:GetObject, s3:PutObject, s3:ListBucket, s3:GetBucketLocation]
+                Resource: [!GetAtt ArtifactsBucket.Arn, !Sub '${ArtifactsBucket.Arn}/*']
+              - Sid: WebsiteUpload
+                Effect: Allow
+                Action: [s3:GetObject, s3:PutObject, s3:DeleteObject, s3:ListBucket]
+                Resource:
+                  - !Sub 'arn:aws:s3:::${ProjectSlug}-*'
+                  - !Sub 'arn:aws:s3:::${ProjectSlug}-*/*'
+              - Sid: CacheInvalidation
+                Effect: Allow
+                Action: [cloudfront:CreateInvalidation, cloudfront:GetInvalidation]
+                Resource: !Sub 'arn:aws:cloudfront::${AWS::AccountId}:distribution/*'
+              - Sid: RunMigrations
+                Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !Sub 'arn:aws:lambda:*:${AWS::AccountId}:function:${ProjectSlug}-*-migrate'
+
+Outputs:
+  DeployRoleArn:
+    Description: GitHub variable AWS_DEPLOY_ROLE_ARN
+    Value: !GetAtt GitHubDeployRole.Arn
+  CloudFormationExecutionRoleArn:
+    Description: GitHub variable AWS_CFN_EXECUTION_ROLE_ARN
+    Value: !GetAtt CloudFormationExecutionRole.Arn
+  ArtifactsBucketName:
+    Description: GitHub variable SAM_ARTIFACTS_BUCKET
+    Value: !Ref ArtifactsBucket

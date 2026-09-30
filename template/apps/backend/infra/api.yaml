@@ -1,0 +1,259 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >-
+  HTTP API with a Cognito JWT authorizer in front of the FastAPI Lambda, plus
+  the migration Lambda, log groups, and alarms.
+
+Parameters:
+  ProjectSlug:
+    Type: String
+  AppEnv:
+    Type: String
+    AllowedValues: [dev, staging, prod]
+  AppVersion:
+    Type: String
+  FrontendUrl:
+    Type: String
+  SubnetIds:
+    Type: CommaDelimitedList
+  LambdaSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+  DbHost:
+    Type: String
+  DbPort:
+    Type: String
+  DbName:
+    Type: String
+  DbSecretArn:
+    Type: String
+  UserPoolId:
+    Type: String
+  UserPoolClientId:
+    Type: String
+  AlarmTopicArn:
+    Type: String
+
+Conditions:
+  IsDev: !Equals [!Ref AppEnv, dev]
+  IsProd: !Equals [!Ref AppEnv, prod]
+
+Globals:
+  Function:
+    Runtime: python3.14
+    Architectures: [arm64]
+    CodeUri: ../src
+    MemorySize: 1024
+    Timeout: 15
+    LoggingConfig:
+      LogFormat: JSON
+    VpcConfig:
+      SubnetIds: !Ref SubnetIds
+      SecurityGroupIds: [!Ref LambdaSecurityGroupId]
+    Environment:
+      Variables:
+        APP_ENV: !Ref AppEnv
+        APP_VERSION: !Ref AppVersion
+        AUTH_MODE: jwt
+        DB_HOST: !Ref DbHost
+        DB_PORT: !Ref DbPort
+        DB_NAME: !Ref DbName
+        DB_SECRET_ARN: !Ref DbSecretArn
+        LOG_LEVEL: !If [IsProd, INFO, DEBUG]
+
+Resources:
+  HttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      FailOnWarnings: true
+      CorsConfiguration:
+        AllowOrigins: !If [IsDev, [!Ref FrontendUrl, 'http://localhost:5173'], [!Ref FrontendUrl]]
+        AllowHeaders: [authorization, content-type, x-request-id]
+        AllowMethods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
+        ExposeHeaders: [x-request-id]
+        MaxAge: 600
+      Auth:
+        DefaultAuthorizer: CognitoJwt
+        Authorizers:
+          CognitoJwt:
+            IdentitySource: $request.header.Authorization
+            JwtConfiguration:
+              issuer: !Sub 'https://cognito-idp.${AWS::Region}.amazonaws.com/${UserPoolId}'
+              audience: [!Ref UserPoolClientId]
+      DefaultRouteSettings:
+        ThrottlingBurstLimit: 200
+        ThrottlingRateLimit: 100
+      AccessLogSettings:
+        DestinationArn: !GetAtt ApiAccessLogs.Arn
+        Format: >-
+          {"requestId":"$context.requestId","routeKey":"$context.routeKey","status":"$context.status",
+          "latencyMs":"$context.responseLatency","integrationError":"$context.integrationErrorMessage",
+          "authorizerError":"$context.authorizer.error","sourceIp":"$context.identity.sourceIp"}
+
+  ApiAccessLogs:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/apigateway/${ProjectSlug}-${AppEnv}-api'
+      RetentionInDays: !If [IsProd, 90, 14]
+
+  ApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${ProjectSlug}-${AppEnv}-api'
+      Description: FastAPI application
+      Handler: app.handler
+      # SnapStart snapshots the initialized function, cutting cold starts.
+      # It publishes a version per deploy, which is slower, so dev skips it.
+      AutoPublishAlias: live
+      AutoPublishAliasAllProperties: true
+      SnapStart:
+        ApplyOn: !If [IsDev, None, PublishedVersions]
+      LoggingConfig:
+        LogFormat: JSON
+        LogGroup: !Ref ApiFunctionLogs
+      Policies:
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: !Ref DbSecretArn
+      Events:
+        # Health is public. Every other route requires a valid Cognito access token.
+        Health:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /health
+            Method: GET
+            Auth:
+              Authorizer: NONE
+        # One route per method, never ANY: an ANY route would also catch CORS
+        # preflight (OPTIONS) requests and send them through the authorizer.
+        Get:
+          Type: HttpApi
+          Properties: { ApiId: !Ref HttpApi, Path: '/{proxy+}', Method: GET }
+        Post:
+          Type: HttpApi
+          Properties: { ApiId: !Ref HttpApi, Path: '/{proxy+}', Method: POST }
+        Put:
+          Type: HttpApi
+          Properties: { ApiId: !Ref HttpApi, Path: '/{proxy+}', Method: PUT }
+        Patch:
+          Type: HttpApi
+          Properties: { ApiId: !Ref HttpApi, Path: '/{proxy+}', Method: PATCH }
+        Delete:
+          Type: HttpApi
+          Properties: { ApiId: !Ref HttpApi, Path: '/{proxy+}', Method: DELETE }
+
+  ApiFunctionLogs:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${ProjectSlug}-${AppEnv}-api'
+      RetentionInDays: !If [IsProd, 90, 14]
+
+  MigrateFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${ProjectSlug}-${AppEnv}-migrate'
+      Description: Applies Alembic migrations; invoked by the deploy workflow
+      Handler: handlers.migrate.handler
+      Timeout: 300
+      LoggingConfig:
+        LogFormat: JSON
+        LogGroup: !Ref MigrateFunctionLogs
+      Policies:
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: !Ref DbSecretArn
+
+  MigrateFunctionLogs:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${ProjectSlug}-${AppEnv}-migrate'
+      RetentionInDays: !If [IsProd, 90, 14]
+
+  # Errors the code catches and logs (level ERROR) become a metric, so they
+  # alarm too, not only crashes the Lambda service counts.
+  LoggedErrorsMetricFilter:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Ref ApiFunctionLogs
+      FilterPattern: '{ $.level = "ERROR" }'
+      MetricTransformations:
+        - MetricNamespace: !Sub '${ProjectSlug}/${AppEnv}'
+          MetricName: LoggedErrors
+          MetricValue: '1'
+          DefaultValue: 0
+
+  LoggedErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: !Sub '${ProjectSlug} ${AppEnv}: the API logged an error'
+      Namespace: !Sub '${ProjectSlug}/${AppEnv}'
+      MetricName: LoggedErrors
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlarmTopicArn]
+      OKActions: [!Ref AlarmTopicArn]
+
+  ApiFunctionErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: !Sub '${ProjectSlug} ${AppEnv}: API Lambda invocation errors'
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref ApiFunction
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlarmTopicArn]
+      OKActions: [!Ref AlarmTopicArn]
+
+  MigrateFunctionErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: !Sub '${ProjectSlug} ${AppEnv}: migration Lambda failed'
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref MigrateFunction
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlarmTopicArn]
+
+  Api5xxAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: !Sub '${ProjectSlug} ${AppEnv}: API returned 5xx responses'
+      Namespace: AWS/ApiGateway
+      MetricName: 5xx
+      Dimensions:
+        - Name: ApiId
+          Value: !Ref HttpApi
+        - Name: Stage
+          Value: $default
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 5
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlarmTopicArn]
+      OKActions: [!Ref AlarmTopicArn]
+
+Outputs:
+  ApiUrl:
+    Value: !Sub 'https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com'
+  ApiFunctionName:
+    Value: !Ref ApiFunction
+  MigrateFunctionName:
+    Value: !Ref MigrateFunction

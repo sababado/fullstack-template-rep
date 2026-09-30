@@ -1,0 +1,26 @@
+# SAM CLI settings per environment: sam deploy --config-env dev
+# CI passes the artifacts bucket and execution role (see .github/workflows/deploy.yml);
+# for a manual deploy, add --s3-bucket and --role-arn from the bootstrap stack outputs.
+version = 0.1
+
+[default.global.parameters]
+region = "{{ aws_region }}"
+
+[default.build.parameters]
+cached = true
+parallel = true
+
+[default.validate.parameters]
+lint = true
+
+{% for env in ["dev", "staging", "prod"] -%}
+[{{ env }}.deploy.parameters]
+stack_name = "{{ project_slug }}-backend-{{ env }}"
+s3_prefix = "{{ project_slug }}-backend-{{ env }}"
+region = "{{ aws_region }}"
+capabilities = "CAPABILITY_IAM CAPABILITY_AUTO_EXPAND"
+confirm_changeset = false
+fail_on_empty_changeset = false
+parameter_overrides = "ProjectSlug={{ project_slug }} AppEnv={{ env }}"
+
+{% endfor -%}

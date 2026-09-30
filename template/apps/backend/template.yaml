@@ -1,0 +1,120 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >-
+  Backend: HTTP API + Lambda (FastAPI), RDS PostgreSQL, Cognito.
+  Deploy with `sam build && sam deploy --config-env <dev|staging|prod>` (see samconfig.toml).
+
+Parameters:
+  ProjectSlug:
+    Type: String
+    AllowedPattern: '^[a-z][a-z0-9-]{1,22}[a-z0-9]$'
+    Description: Short project identifier used in resource names.
+  AppEnv:
+    Type: String
+    AllowedValues: [dev, staging, prod]
+    Description: Deployment environment.
+  FrontendUrl:
+    Type: String
+    Default: http://localhost:5173
+    AllowedPattern: '^https?://[^/]+$'
+    Description: Origin of the web app (no trailing slash). Allowed for CORS and as the Cognito callback.
+  AppVersion:
+    Type: String
+    Default: unknown
+    Description: Version reported by /health (the deploy workflow passes the git SHA).
+  AlertEmail:
+    Type: String
+    Default: ''
+    Description: Optional address subscribed to alarm notifications (confirm the email AWS sends).
+  DatabaseInstanceClass:
+    Type: String
+    Default: db.t4g.micro
+    Description: RDS instance class.
+
+Conditions:
+  HasAlertEmail: !Not [!Equals [!Ref AlertEmail, '']]
+
+Resources:
+  # Alarms from every nested stack notify this topic.
+  AlarmTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub '${ProjectSlug}-${AppEnv}-alarms'
+      KmsMasterKeyId: alias/aws/sns
+
+  AlarmEmailSubscription:
+    Type: AWS::SNS::Subscription
+    Condition: HasAlertEmail
+    Properties:
+      TopicArn: !Ref AlarmTopic
+      Protocol: email
+      Endpoint: !Ref AlertEmail
+
+  Network:
+    Type: AWS::Serverless::Application
+    Properties:
+      Location: infra/network.yaml
+      Parameters:
+        ProjectSlug: !Ref ProjectSlug
+        AppEnv: !Ref AppEnv
+
+  Database:
+    Type: AWS::Serverless::Application
+    Properties:
+      Location: infra/database.yaml
+      Parameters:
+        ProjectSlug: !Ref ProjectSlug
+        AppEnv: !Ref AppEnv
+        SubnetIds: !GetAtt Network.Outputs.PrivateSubnetIds
+        DatabaseSecurityGroupId: !GetAtt Network.Outputs.DatabaseSecurityGroupId
+        InstanceClass: !Ref DatabaseInstanceClass
+        AlarmTopicArn: !Ref AlarmTopic
+
+  Auth:
+    Type: AWS::Serverless::Application
+    Properties:
+      Location: infra/auth.yaml
+      Parameters:
+        ProjectSlug: !Ref ProjectSlug
+        AppEnv: !Ref AppEnv
+        FrontendUrl: !Ref FrontendUrl
+
+  Api:
+    Type: AWS::Serverless::Application
+    Properties:
+      Location: infra/api.yaml
+      Parameters:
+        ProjectSlug: !Ref ProjectSlug
+        AppEnv: !Ref AppEnv
+        AppVersion: !Ref AppVersion
+        FrontendUrl: !Ref FrontendUrl
+        SubnetIds: !GetAtt Network.Outputs.PrivateSubnetIds
+        LambdaSecurityGroupId: !GetAtt Network.Outputs.LambdaSecurityGroupId
+        DbHost: !GetAtt Database.Outputs.Host
+        DbPort: !GetAtt Database.Outputs.Port
+        DbName: !GetAtt Database.Outputs.Name
+        DbSecretArn: !GetAtt Database.Outputs.SecretArn
+        UserPoolId: !GetAtt Auth.Outputs.UserPoolId
+        UserPoolClientId: !GetAtt Auth.Outputs.UserPoolClientId
+        AlarmTopicArn: !Ref AlarmTopic
+
+Outputs:
+  ApiUrl:
+    Description: Base URL of the HTTP API (VITE_API_BASE_URL).
+    Value: !GetAtt Api.Outputs.ApiUrl
+  MigrateFunctionName:
+    Description: Invoke after each deploy to apply database migrations.
+    Value: !GetAtt Api.Outputs.MigrateFunctionName
+  OidcAuthority:
+    Description: Cognito issuer (VITE_OIDC_AUTHORITY).
+    Value: !GetAtt Auth.Outputs.OidcAuthority
+  UserPoolId:
+    Value: !GetAtt Auth.Outputs.UserPoolId
+  UserPoolClientId:
+    Description: VITE_OIDC_CLIENT_ID.
+    Value: !GetAtt Auth.Outputs.UserPoolClientId
+  CognitoDomain:
+    Description: Hosted sign-in domain (VITE_COGNITO_DOMAIN).
+    Value: !GetAtt Auth.Outputs.CognitoDomain
+  AlarmTopicArn:
+    Value: !Ref AlarmTopic

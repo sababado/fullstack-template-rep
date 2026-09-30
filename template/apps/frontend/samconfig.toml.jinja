@@ -1,0 +1,13 @@
+# SAM CLI settings for the hosting stack: sam deploy --config-env dev
+version = 0.1
+
+{% for env in ["dev", "staging", "prod"] -%}
+[{{ env }}.deploy.parameters]
+stack_name = "{{ project_slug }}-frontend-{{ env }}"
+s3_prefix = "{{ project_slug }}-frontend-{{ env }}"
+region = "{{ aws_region }}"
+confirm_changeset = false
+fail_on_empty_changeset = false
+parameter_overrides = "ProjectSlug={{ project_slug }} AppEnv={{ env }}"
+
+{% endfor -%}
