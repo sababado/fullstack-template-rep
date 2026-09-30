@@ -1,0 +1,21 @@
+# Changes to these paths need a review from the owner. The last matching
+# pattern wins, so keep broad patterns first.
+
+# CI, deploy, and repository automation
+/.github/                            {{ code_owner }}
+
+# Infrastructure and access
+/infra/                              {{ code_owner }}
+/apps/backend/infra/                 {{ code_owner }}
+/apps/backend/template.yaml          {{ code_owner }}
+/apps/frontend/template.yaml         {{ code_owner }}
+
+# Database schema, auth, and configuration
+/apps/backend/src/migrations/        {{ code_owner }}
+/apps/backend/src/core/auth.py       {{ code_owner }}
+/apps/backend/src/core/config.py     {{ code_owner }}
+/apps/backend/src/core/errors.py     {{ code_owner }}
+
+# Rules that AI agents follow
+/CLAUDE.md                           {{ code_owner }}
+/.claude/                            {{ code_owner }}

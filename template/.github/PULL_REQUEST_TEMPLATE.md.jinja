@@ -1,0 +1,46 @@
+<!--
+  Fill in every section. "n/a" is fine with a one-line reason.
+  Humans and AI agents use the same template.
+-->
+
+## Summary
+
+<!-- 1-3 sentences: what changed and why. -->
+
+## Closes
+
+<!--
+{%- if tracker == "linear" %}
+  Linear stories this PR delivers, one per line: Closes {{ tracker_key }}-12
+  Use "Refs {{ tracker_key }}-12" when the story isn't finished by this PR.
+{%- elif tracker == "github" %}
+  GitHub issues this PR delivers, one per line: Closes #12
+  Use "Refs #12" when the issue isn't finished by this PR.
+{%- else %}
+  The story in .implementation_plans/<plan>/STORIES.md this PR delivers, for example
+  "Closes <plan>#S3". Use "Refs" when the story isn't finished by this PR.
+{%- endif %}
+  For chores: n/a — <chore|docs|refactor>: <reason>
+-->
+
+## Three questions
+
+<!-- Three questions about the change from a user's point of view.
+     Reviewers use them as acceptance criteria. -->
+
+1.
+2.
+3.
+
+## Migrations and breaking changes
+
+<!-- "none", or list: migrations (destructive?), API contract changes,
+     new env vars or secrets, infrastructure changes. -->
+
+none
+
+## Test plan
+
+- [ ] `npm run lint && npm run typecheck && npm test`
+- [ ] `cd apps/backend && uv run pytest`
+- [ ]

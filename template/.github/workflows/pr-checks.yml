@@ -1,0 +1,201 @@
+# Checks every pull request. Jobs run only for the parts of the repo a PR
+# touches; the "PR check" job at the bottom is the one required status check.
+name: PR checks
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-checks-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      pull-requests: read
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      infra: ${{ steps.filter.outputs.infra }}
+      ci: ${{ steps.filter.outputs.ci }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'apps/backend/**'
+            frontend:
+              - 'apps/frontend/**'
+              - 'packages/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'tsconfig.base.json'
+              - 'eslint.config.js'
+              - '.prettierrc.json'
+              - '.prettierignore'
+            infra:
+              - 'apps/backend/template.yaml'
+              - 'apps/backend/samconfig.toml'
+              - 'apps/backend/infra/**'
+              - 'apps/frontend/template.yaml'
+              - 'apps/frontend/samconfig.toml'
+              - 'infra/**'
+            # A PR that edits CI runs every job, so CI changes are tested too.
+            ci:
+              - '.github/**'
+
+  backend:
+    name: Backend
+    needs: changes
+    if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.ci == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/backend
+    services:
+      postgres:
+        # Same major version as docker-compose.yml and RDS.
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: app
+          POSTGRES_PASSWORD: app
+          POSTGRES_DB: app_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U app -d app_test" --health-interval 2s
+          --health-timeout 5s --health-retries 20
+    env:
+      TEST_DATABASE_URL: postgresql+asyncpg://app:app@localhost:5432/app_test
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10
+        with:
+          enable-cache: true
+          cache-dependency-glob: apps/backend/uv.lock
+      - name: Install
+        run: uv sync --locked
+      - name: Lint
+        run: uv run ruff check . && uv run ruff format --check .
+      - name: Type check
+        run: uv run mypy
+      - name: Import contracts
+        run: uv run lint-imports
+      - name: Tests (unit + integration, coverage floor in pyproject.toml)
+        run: uv run pytest --cov --cov-report=term
+      - name: Lambda requirements match uv.lock
+        run: |
+          uv export --frozen --no-dev --no-emit-project --quiet -o src/requirements.txt
+          git diff --exit-code src/requirements.txt || {
+            echo "::error::src/requirements.txt is stale. Run: uv export --frozen --no-dev --no-emit-project -o src/requirements.txt"
+            exit 1
+          }
+
+  frontend:
+    name: Frontend
+    needs: changes
+    if: >-
+      needs.changes.outputs.frontend == 'true' || needs.changes.outputs.backend == 'true' ||
+      needs.changes.outputs.ci == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - uses: astral-sh/setup-uv@v10
+        with:
+          enable-cache: true
+          cache-dependency-glob: apps/backend/uv.lock
+      - name: Install
+        run: npm ci && (cd apps/backend && uv sync --locked)
+      - name: API contract and generated types are current
+        run: |
+          npm run gen:api
+          git diff --exit-code apps/backend/openapi.json apps/frontend/src/core/api/schema.d.ts || {
+            echo "::error::The API contract changed. Run npm run gen:api and commit the result."
+            exit 1
+          }
+      - name: Lint and format
+        run: npm run lint
+      - name: Type check
+        run: npm run typecheck
+      - name: Unit tests (coverage floors in each vite/vitest config)
+        run: npm test
+      - name: Build
+        run: npm run build
+
+  ui-stories:
+    name: UI kit stories (browser + accessibility)
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true' || needs.changes.outputs.ci == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Install
+        run: npm ci
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Story tests (axe violations fail the run)
+        run: npm run test:stories -w @app/ui-kit
+      - name: Build Storybook
+        run: npm run build-storybook -w @app/ui-kit
+
+  infra:
+    name: Infrastructure templates
+    needs: changes
+    if: >-
+      needs.changes.outputs.infra == 'true' || needs.changes.outputs.backend == 'true' ||
+      needs.changes.outputs.ci == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10
+      - name: cfn-lint
+        run: >-
+          uvx cfn-lint==1.57.1 apps/backend/template.yaml apps/backend/infra/*.yaml
+          apps/frontend/template.yaml infra/*.yaml
+      - uses: actions/setup-python@v7
+        with:
+          python-version-file: apps/backend/.python-version
+      - uses: aws-actions/setup-sam@v3
+        with:
+          use-installer: true
+          version: 1.166.2
+      - name: Build the Lambda package
+        working-directory: apps/backend
+        run: sam build --parallel
+
+  pr-check:
+    name: PR check
+    if: ${{ !cancelled() }}
+    needs: [changes, backend, frontend, ui-stories, infra]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      # Skipped jobs pass; a failed or cancelled job (including change
+      # detection itself) fails this check.
+      - name: Summarize
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "Job results: $RESULTS"
+          for result in $RESULTS; do
+            if [ "$result" = failure ] || [ "$result" = cancelled ]; then exit 1; fi
+          done

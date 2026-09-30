@@ -1,0 +1,222 @@
+# Deploys on push: develop -> dev, staging -> staging, main -> prod.
+# Each job runs in a GitHub Environment named after the target; configure
+# per-environment variables and protection rules there (docs/runbooks/aws-bootstrap.md):
+#   AWS_REGION, AWS_DEPLOY_ROLE_ARN, AWS_CFN_EXECUTION_ROLE_ARN,
+#   SAM_ARTIFACTS_BUCKET, ALERT_EMAIL (optional)
+name: Deploy
+
+on:
+  push:
+    branches: [develop, staging, main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Environment to deploy
+        type: choice
+        options: [dev, staging, prod]
+        required: true
+
+permissions:
+  id-token: write # OIDC: short-lived AWS credentials, no stored keys
+  contents: read
+
+env:
+  PROJECT_SLUG: {{ project_slug }}
+  SAM_CLI_TELEMETRY: '0'
+{% raw %}
+jobs:
+  target:
+    name: Pick environment
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      environment: ${{ steps.pick.outputs.environment }}
+    steps:
+      - id: pick
+        env:
+          EVENT: ${{ github.event_name }}
+          INPUT: ${{ inputs.environment }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          if [ "$EVENT" = workflow_dispatch ]; then target="$INPUT"
+          else
+            case "$BRANCH" in
+              main) target=prod ;;
+              staging) target=staging ;;
+              develop) target=dev ;;
+              *) echo "::error::No environment for branch $BRANCH"; exit 1 ;;
+            esac
+          fi
+          echo "environment=$target" >> "$GITHUB_OUTPUT"
+
+  hosting:
+    name: Hosting stack
+    needs: target
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: ${{ needs.target.outputs.environment }}
+    concurrency:
+      group: deploy-hosting-${{ needs.target.outputs.environment }}
+      cancel-in-progress: false
+    outputs:
+      bucket: ${{ steps.outputs.outputs.bucket }}
+      distribution: ${{ steps.outputs.outputs.distribution }}
+      url: ${{ steps.outputs.outputs.url }}
+    env:
+      APP_ENV: ${{ needs.target.outputs.environment }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - uses: aws-actions/setup-sam@v3
+        with:
+          use-installer: true
+          version: 1.166.2
+      - name: Deploy
+        working-directory: apps/frontend
+        env:
+          ARTIFACTS_BUCKET: ${{ vars.SAM_ARTIFACTS_BUCKET }}
+          EXECUTION_ROLE: ${{ vars.AWS_CFN_EXECUTION_ROLE_ARN }}
+        run: >-
+          sam deploy --config-env "$APP_ENV" --no-progressbar
+          --s3-bucket "$ARTIFACTS_BUCKET" --role-arn "$EXECUTION_ROLE"
+      - name: Read outputs
+        id: outputs
+        run: |
+          stack="$PROJECT_SLUG-frontend-$APP_ENV"
+          get() { aws cloudformation describe-stacks --stack-name "$stack" \
+            --query "Stacks[0].Outputs[?OutputKey=='$1'].OutputValue" --output text; }
+          {
+            echo "bucket=$(get BucketName)"
+            echo "distribution=$(get DistributionId)"
+            echo "url=$(get WebsiteUrl)"
+          } >> "$GITHUB_OUTPUT"
+
+  backend:
+    name: Backend stack and migrations
+    needs: [target, hosting]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    environment: ${{ needs.target.outputs.environment }}
+    concurrency:
+      group: deploy-backend-${{ needs.target.outputs.environment }}
+      cancel-in-progress: false
+    outputs:
+      api-url: ${{ steps.outputs.outputs.api-url }}
+      oidc-authority: ${{ steps.outputs.outputs.oidc-authority }}
+      client-id: ${{ steps.outputs.outputs.client-id }}
+      cognito-domain: ${{ steps.outputs.outputs.cognito-domain }}
+    env:
+      APP_ENV: ${{ needs.target.outputs.environment }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version-file: apps/backend/.python-version
+      - uses: aws-actions/setup-sam@v3
+        with:
+          use-installer: true
+          version: 1.166.2
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - name: Build
+        working-directory: apps/backend
+        run: sam build --parallel
+      - name: Deploy
+        working-directory: apps/backend
+        env:
+          ARTIFACTS_BUCKET: ${{ vars.SAM_ARTIFACTS_BUCKET }}
+          EXECUTION_ROLE: ${{ vars.AWS_CFN_EXECUTION_ROLE_ARN }}
+          FRONTEND_URL: ${{ needs.hosting.outputs.url }}
+          ALERT_EMAIL: ${{ vars.ALERT_EMAIL }}
+          VERSION: ${{ github.sha }}
+        # Command-line overrides replace samconfig's, so every parameter is listed.
+        run: >-
+          sam deploy --config-env "$APP_ENV" --no-progressbar
+          --s3-bucket "$ARTIFACTS_BUCKET" --role-arn "$EXECUTION_ROLE"
+          --parameter-overrides "ProjectSlug=$PROJECT_SLUG" "AppEnv=$APP_ENV"
+          "FrontendUrl=$FRONTEND_URL" "AppVersion=$VERSION" "AlertEmail=$ALERT_EMAIL"
+      - name: Read outputs
+        id: outputs
+        run: |
+          stack="$PROJECT_SLUG-backend-$APP_ENV"
+          get() { aws cloudformation describe-stacks --stack-name "$stack" \
+            --query "Stacks[0].Outputs[?OutputKey=='$1'].OutputValue" --output text; }
+          {
+            echo "api-url=$(get ApiUrl)"
+            echo "migrate-function=$(get MigrateFunctionName)"
+            echo "oidc-authority=$(get OidcAuthority)"
+            echo "client-id=$(get UserPoolClientId)"
+            echo "cognito-domain=$(get CognitoDomain)"
+          } >> "$GITHUB_OUTPUT"
+      - name: Apply migrations
+        env:
+          FUNCTION: ${{ steps.outputs.outputs.migrate-function }}
+        # `aws lambda invoke` exits 0 even when the function fails, so check both
+        # the FunctionError field and the payload.
+        run: |
+          aws lambda invoke --function-name "$FUNCTION" --cli-binary-format raw-in-base64-out \
+            --payload '{}' --cli-read-timeout 330 response.json > invoke.json
+          cat response.json
+          if grep -q FunctionError invoke.json || grep -q errorMessage response.json; then
+            echo "::error::Migrations failed; see the migrate function's logs."
+            exit 1
+          fi
+      - name: Health check
+        env:
+          API_URL: ${{ steps.outputs.outputs.api-url }}
+          VERSION: ${{ github.sha }}
+        run: |
+          curl --fail --silent --show-error --retry 5 --retry-all-errors --retry-delay 5 "$API_URL/health" | tee health.json
+          grep -q "\"version\":\"$VERSION\"" health.json || { echo "::error::/health isn't serving $VERSION"; exit 1; }
+
+  web:
+    name: Web app
+    needs: [target, hosting, backend]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: ${{ needs.target.outputs.environment }}
+    concurrency:
+      group: deploy-web-${{ needs.target.outputs.environment }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Install
+        run: npm ci
+      - name: Build
+        env:
+          VITE_API_BASE_URL: ${{ needs.backend.outputs.api-url }}
+          VITE_AUTH_MODE: oidc
+          VITE_OIDC_AUTHORITY: ${{ needs.backend.outputs.oidc-authority }}
+          VITE_OIDC_CLIENT_ID: ${{ needs.backend.outputs.client-id }}
+          VITE_COGNITO_DOMAIN: ${{ needs.backend.outputs.cognito-domain }}
+          VITE_APP_VERSION: ${{ github.sha }}
+        run: npm run build -w @app/frontend
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - name: Upload
+        working-directory: apps/frontend/dist
+        env:
+          BUCKET: ${{ needs.hosting.outputs.bucket }}
+        # Hashed assets are immutable; other files revalidate. Old assets are
+        # kept so tabs still running the previous version can load their chunks.
+        # index.html goes last so it never references a file not yet uploaded.
+        run: |
+          aws s3 sync assets "s3://$BUCKET/assets" --cache-control "public,max-age=31536000,immutable"
+          aws s3 sync . "s3://$BUCKET" --exclude "assets/*" --exclude index.html --cache-control "public,max-age=3600"
+          aws s3 cp index.html "s3://$BUCKET/index.html" --cache-control "no-cache"
+      - name: Invalidate CDN cache
+        env:
+          DISTRIBUTION: ${{ needs.hosting.outputs.distribution }}
+        run: aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION" --paths "/*"
+{%- endraw %}
