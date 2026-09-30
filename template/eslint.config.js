@@ -62,7 +62,7 @@ export default defineConfig([
     },
   },
   {
-    files: ['**/*.{js,mjs}', '**/*.config.ts'],
+    files: ['**/*.{js,mjs}', '**/*.config.ts', '**/.storybook/main.ts'],
     extends: [tseslint.configs.disableTypeChecked],
     languageOptions: { globals: globals.node },
   },

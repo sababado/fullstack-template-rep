@@ -26,6 +26,8 @@ samconfig.local.toml
 .env
 .env.*
 !.env.example
+!.env.development
+!.env.test
 
 # Playwright
 test-results/
