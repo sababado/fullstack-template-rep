@@ -1,0 +1,47 @@
+# Dependencies and build output
+node_modules/
+dist/
+storybook-static/
+coverage/
+*.tsbuildinfo
+.vitest-reports/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# AWS SAM
+.aws-sam/
+samconfig.local.toml
+
+# Environment files (commit .env.example files only)
+.env
+.env.*
+!.env.example
+
+# Playwright
+test-results/
+playwright-report/
+
+# Editors and OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+*.swp
+
+# Claude Code local state
+.claude/settings.local.json
+.claude/worktrees/
+
+# Local overrides
+docker-compose.override.yml
+.import_linter_cache/

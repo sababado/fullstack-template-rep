@@ -1,0 +1,124 @@
+[project]
+name = "backend"
+version = "0.1.0"
+description = "HTTP API: FastAPI on AWS Lambda behind API Gateway (HTTP API)"
+requires-python = ">=3.14,<3.15"
+dependencies = [
+    "alembic>=1.20.0",
+    "asyncpg>=0.31.0",
+    "aws-lambda-powertools>=3.35.0",
+    "boto3>=1.43.105",
+    "fastapi>=0.142.1",
+    "mangum>=0.22.0",
+    "nh3>=0.3.7",
+    "pydantic>=2.13.5",
+    "pydantic-settings>=2.15.0",
+    "sqlalchemy[asyncio]>=2.1.1",
+]
+
+[dependency-groups]
+dev = [
+    "asyncpg-stubs>=0.31.3",
+    "boto3-stubs[secretsmanager]>=1.43.105",
+    "httpx>=0.28.1",
+    "import-linter>=2.15",
+    "mypy>=2.3.1",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.16.9",
+    "testcontainers[postgres]>=4.15.0",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+# Installed editable in dev so tests, mypy, import-linter, and alembic all see
+# src/ on the path. Lambda builds use src/requirements.txt instead (see
+# README "Dependencies"), so the project itself is never packaged for AWS.
+[tool.hatch.build.targets.wheel]
+packages = ["src/core", "src/features", "src/handlers"]
+only-include = ["src"]
+sources = ["src"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py314"
+src = ["src", "tests", "scripts"]
+
+[tool.ruff.lint]
+select = [
+    "ASYNC", # async pitfalls (blocking calls in async code)
+    "B",     # bugbear
+    "C4",    # comprehensions
+    "DTZ",   # timezone-naive datetimes
+    "E",
+    "F",
+    "I",     # import sorting
+    "N",     # naming
+    "PT",    # pytest style
+    "RUF",
+    "S",     # bandit security checks
+    "SIM",
+    "TID",   # tidy imports (bans relative imports below)
+    "UP",    # pyupgrade
+    "W",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S105", "S106"]
+"src/migrations/versions/**" = ["N999"]
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.lint.isort]
+known-first-party = ["app", "core", "features", "handlers"]
+
+[tool.mypy]
+python_version = "3.14"
+strict = true
+mypy_path = "src"
+explicit_package_bases = true
+files = ["src", "tests", "scripts"]
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = ["testcontainers.*", "mangum.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+addopts = "-ra --strict-markers --strict-config"
+markers = ["integration: needs a Postgres database (see tests/conftest.py)"]
+filterwarnings = ["error::DeprecationWarning:core.*", "error::DeprecationWarning:features.*"]
+
+[tool.coverage.run]
+source = ["src"]
+branch = true
+omit = ["src/migrations/*"]
+
+[tool.coverage.report]
+# A floor, not a target: raise it as coverage grows, never lower it.
+fail_under = 85
+show_missing = true
+skip_covered = true
+
+[tool.importlinter]
+root_packages = ["core", "features", "handlers"]
+
+[[tool.importlinter.contracts]]
+name = "core is the kernel: it never imports features or handlers"
+type = "forbidden"
+source_modules = ["core"]
+forbidden_modules = ["features", "handlers"]
+
+[[tool.importlinter.contracts]]
+name = "features don't import each other (share through core or domain events)"
+type = "independence"
+modules = ["features.*"]
