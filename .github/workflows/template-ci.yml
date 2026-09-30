@@ -26,13 +26,21 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # One answer per line, KEY=VALUE. Values may contain spaces and quotes.
         include:
           - name: github tracker, Claude review
-            data: -d tracker=github -d include_claude_review=true
+            answers: |
+              tracker=github
+              include_claude_review=true
           - name: linear tracker, no review
-            data: -d tracker=linear -d tracker_key=ACME -d include_claude_review=false
+            answers: |
+              tracker=linear
+              tracker_key=ACME
+              include_claude_review=false
           - name: no tracker, quoted name
-            data: -d "project_name=Bob's Lab" -d tracker=none
+            answers: |
+              project_name=Bob's Lab
+              tracker=none
     steps:
       - uses: actions/checkout@v7
         with:
@@ -40,11 +48,15 @@ jobs:
       - uses: astral-sh/setup-uv@v7
       - name: Render
         env:
-          DATA: ${{ matrix.data }}
+          ANSWERS: ${{ matrix.answers }}
         run: |
-          # shellcheck disable=SC2086 # DATA holds several -d flags
+          # One -d flag per line, each kept as a single argument.
+          data=()
+          while IFS= read -r answer; do
+            if [ -n "$answer" ]; then data+=(-d "$answer"); fi
+          done <<< "$ANSWERS"
           uvx "copier==$COPIER_VERSION" copy --trust --defaults --vcs-ref HEAD \
-            -d "project_name=Acme Portal" -d github_repository=acme/acme-portal $DATA \
+            -d "project_name=Acme Portal" -d github_repository=acme/acme-portal "${data[@]}" \
             . /tmp/project
       - name: No leftover template syntax, right optional files
         run: python3 scripts/check_render.py /tmp/project
