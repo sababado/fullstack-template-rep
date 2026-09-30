@@ -14,6 +14,10 @@ was built; this record keeps the reasons.
 
 - **SQLAlchemy 2.1 typed models instead of SQLModel.** SQLModel pins SQLAlchemy below
   2.1, and request/response schemas are separate Pydantic models anyway.
+- **Tailwind CSS 4, configured in CSS.** The design system lives in one stylesheet,
+  `packages/ui-kit/src/styles.css`: token variables, `@theme inline`, the dark variant,
+  and `@source` so apps pick up the kit's classes by importing it. There is no
+  JavaScript config or PostCSS setup; the Vite plugin handles the build.
 - **TypeScript 6.0, not 7.** TypeScript 7 (the native compiler) is out, but
   typescript-eslint and openapi-typescript support only up to 6.x.
 - **No eslint-plugin-jsx-a11y.** It hasn't been released since 2024 and doesn't support
@@ -38,6 +42,10 @@ was built; this record keeps the reasons.
 3. `import.meta.env` is read only in `apps/frontend/src/core/config/env.ts` (ESLint).
 4. The API function has no `ANY` routes.
 5. No module performs network I/O at import time.
+6. No `tailwind.config.*` file exists; design tokens are defined only in
+   `packages/ui-kit/src/styles.css`.
+7. Source files use no Tailwind v3-only utilities (`bg-opacity-*`, `text-opacity-*`,
+   `flex-shrink-*`, `flex-grow-*`, `overflow-ellipsis`), which v4 silently ignores.
 
 ## Consequences
 
@@ -50,3 +58,5 @@ was built; this record keeps the reasons.
 - `apps/backend/pyproject.toml` (import-linter contracts), `eslint.config.js`
 - `apps/backend/src/app.py` (event loop), `apps/backend/tests/unit/test_app.py`
 - `apps/backend/infra/api.yaml` (routes), `apps/backend/infra/network.yaml`
+- `packages/ui-kit/src/styles.css` (Tailwind theme), `scripts/check-tailwind-v4.mjs`
+  (invariants 6 and 7, run by `npm run lint`)

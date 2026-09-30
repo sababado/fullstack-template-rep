@@ -15,7 +15,7 @@
     "dev:api": "cd apps/backend && uv run uvicorn app:app --app-dir src --reload --port 8000",
     "dev:web": "npm run dev -w @app/frontend",
     "storybook": "npm run storybook -w @app/ui-kit",
-    "lint": "eslint . --max-warnings 0 && prettier --check .",
+    "lint": "eslint . --max-warnings 0 && prettier --check . && node scripts/check-tailwind-v4.mjs",
     "format": "prettier --write . && eslint . --fix",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",

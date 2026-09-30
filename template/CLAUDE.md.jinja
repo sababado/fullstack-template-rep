@@ -45,6 +45,9 @@ If you couldn't run a check, say which one and why.
 - Frontend UI comes from `@app/ui-kit`, colors are semantic tokens (`bg-primary`, never
   `bg-blue-600`), every user-visible string goes through i18n, and config is read only
   through `apps/frontend/src/core/config/env.ts`.
+- Styling is Tailwind CSS 4, configured in CSS (`packages/ui-kit/src/styles.css`). Never
+  add a `tailwind.config.*` file, and write v4 class names, not v3 ones (see the table in
+  `packages/ui-kit/docs/Agents.md`).
 - Schema changes get an Alembic migration (`uv run alembic revision --autogenerate --rev-id NNNN`),
   reviewed by hand before committing.
 - Keep changes scoped to the task. Note unrelated problems instead of fixing them silently.

@@ -66,6 +66,11 @@ src/
   UI kit (with a story and a test) instead of styling raw elements in the app.
 - Semantic tokens only (`bg-surface`, `text-muted-foreground`). No raw palette colors, no
   arbitrary values like `text-[#333]`.
+- Tailwind 4 syntax. There is no `tailwind.config.js`: new tokens go in
+  `packages/ui-kit/src/styles.css`. Watch for v3 habits that v4 silently ignores or
+  resizes (`shadow-sm` is now `shadow-xs`, `outline-none` is now `outline-hidden`,
+  `bg-opacity-*` is gone); the full table is in
+  [packages/ui-kit/docs/Agents.md](../../../packages/ui-kit/docs/Agents.md#tailwind-css-4).
 - Headings are in order (one `h1` per page), every control has a label, and icon-only
   buttons have an `aria-label`.
 

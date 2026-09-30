@@ -107,7 +107,9 @@ they supply behavior (focus management, keyboard support), semantic tokens.
 
 **Tokens.** For a new color: the variable in both `:root` and `.dark` in `styles.css`, its
 mapping in `@theme inline`, and its entry in the `Foundations/Colors` story, which checks
-contrast in both themes.
+contrast in both themes. The kit is on Tailwind 4: all theme configuration lives in
+`styles.css` (never plan a `tailwind.config.*` file), and class names follow the v4 table
+in `packages/ui-kit/docs/Agents.md` (`shadow-xs`, `outline-hidden`, `bg-black/50`).
 
 **Stories.** One per meaningful state and variant; a dark-mode story if colors change.
 Follow the title convention the existing stories use.

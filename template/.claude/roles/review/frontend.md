@@ -100,6 +100,10 @@ misses this when a default value satisfies the checker.
 - [ ] Semantic tokens only (`bg-surface`, `text-muted-foreground`, `bg-primary`). No
       palette colors (`bg-blue-600`), hex values, or arbitrary values (`text-[#333]`).
       Tokens switch with the theme; palette colors don't.
+- [ ] Tailwind 4 class names, not v3 ones: no `tailwind.config.*`, no `bg-opacity-*`,
+      `flex-shrink-*`, or `outline-none` for hiding focus (use `outline-hidden`), and
+      shadow/rounded sizes checked against the v4 scale. The full table is in
+      `packages/ui-kit/docs/Agents.md` ("Tailwind CSS 4").
 - [ ] Icons come from `lucide-react`; decorative icons are `aria-hidden`.
 
 ### Security (BLOCK)

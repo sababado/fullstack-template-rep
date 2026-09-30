@@ -35,7 +35,7 @@ export function AppShell({ brand, nav, actions, skipLinkLabel, children }: AppSh
       <main
         id="main"
         tabIndex={-1}
-        className="max-w-5xl px-4 py-8 mx-auto w-full flex-1 focus:outline-none"
+        className="max-w-5xl px-4 py-8 mx-auto w-full flex-1 focus:outline-hidden"
       >
         {children}
       </main>

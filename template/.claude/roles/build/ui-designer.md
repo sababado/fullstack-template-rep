@@ -84,6 +84,11 @@ Name semantic tokens only (`bg-surface`, `text-muted-foreground`, `bg-primary`,
 `border-border`). They switch with the theme, so a correct design needs no `dark:`
 overrides. If a new kit component's colors change by theme, it needs a dark-mode story.
 
+Write Tailwind 4 class names. The scales shifted (v4 `shadow-xs` and `rounded-xs` are
+v3's `-sm`), `outline-none` is now `outline-hidden` when replacing a focus style, and
+opacity utilities are gone (`bg-black/50`). See the table in
+`packages/ui-kit/docs/Agents.md`.
+
 ### 7. List the strings
 
 Every piece of visible text, including labels, placeholders, accessible names, and

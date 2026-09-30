@@ -58,6 +58,25 @@ section). Plus `theme/`, `foundations/`, `lib/`.
       `dark:` class that restates a token, or names a token that doesn't exist (it
       silently does nothing).
 
+### Tailwind 4 (BLOCK)
+
+The kit is on Tailwind 4, configured in `src/styles.css`. v3 habits either produce no
+CSS or the wrong size, without any error.
+
+- [ ] No `tailwind.config.*` file and no PostCSS config. Theme changes go in
+      `styles.css` (`:root`/`.dark` variables plus `@theme inline`).
+- [ ] No removed v3 utilities: `bg-opacity-*`/`text-opacity-*` (use `bg-black/50`),
+      `flex-shrink-*`/`flex-grow-*` (use `shrink-*`/`grow-*`), `overflow-ellipsis`.
+      `npm run lint` catches these; flag them anyway.
+- [ ] Renamed scales used deliberately: v4 `shadow-xs`/`rounded-xs`/`blur-xs` are v3's
+      `-sm`, and v4's bare `shadow`/`rounded` are v3's `-sm`. A v3-sized design written
+      with v3 names comes out one step too large. (WARN when it's only a size question.)
+- [ ] Focus rings: `outline-hidden`, not `outline-none`, when a visible focus style is
+      replaced (v4's `outline-none` also hides focus in forced-colors mode). `ring` is 1px
+      in v4; a 3px ring is `ring-3`.
+- [ ] CSS-variable values use v4 syntax `bg-(--name)`, not `bg-[--name]`; `!important`
+      is a trailing `!` (`font-bold!`).
+
 ### No hardcoded copy (BLOCK)
 
 - [ ] Every user-visible string, including accessible names, arrives as a prop. The
