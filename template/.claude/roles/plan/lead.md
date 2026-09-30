@@ -138,9 +138,10 @@ documents. If everything passes, say so in one line.
       migration or each change the API are sequential-only.
 - [ ] **Decisions:** no phase breaks an invariant of an `Accepted` record in
       `docs/decisions/`; watch items are in the affected phase's Security checklist.
-- [ ] **Docs:** the phase that adds a feature adds its row to `docs/feature-map.md`; each
-      phase with a user-visible change adds a line under `## [Unreleased]` in `CHANGELOG.md`
-      (never a version heading, never a version bump).
+- [ ] **Docs:** the phase that adds a feature adds its row to `docs/feature-map.md`. Each
+      phase with a user-visible change says so in its Goal, so `/build` adds its line under
+      `## [Unreleased]` in `CHANGELOG.md`. No phase plans a version heading or a version
+      bump (see `docs/VERSIONING.md`).
 
 ### 6. Assemble the plan
 

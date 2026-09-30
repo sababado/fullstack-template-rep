@@ -161,9 +161,10 @@ Read `.claude/roles/plan/lead.md` and adopt that role.
    - For each pair of phases with no `depends_on` path between them, compare their "Files
      to create" and "Files to modify" lists.
    - If any path appears in both, mark the pair **sequential-only**. Watch for the files
-     every feature touches: the feature's `index.ts`, `core/i18n/locales/en/<namespace>.ts`,
-     `core/i18n/resources.ts`, `core/i18n/locales/en/errors.ts`, `router.tsx`,
-     `core/layouts/AppLayout.tsx`, `apps/backend/src/app.py`, and the generated
+     every feature touches: under `apps/frontend/src/`, the feature's `index.ts`,
+     `core/i18n/locales/en/<namespace>.ts`, `core/i18n/resources.ts`,
+     `core/i18n/locales/en/errors.ts`, `router.tsx`, and `core/layouts/AppLayout.tsx`;
+     `apps/backend/src/app.py`; and the generated
      `apps/backend/openapi.json` and `apps/frontend/src/core/api/schema.d.ts` (any two
      phases that change the API both regenerate them).
    - Two phases that each add an Alembic migration are sequential-only: they would take the
@@ -238,7 +239,7 @@ time you switch roles; don't work from memory.
 | `frontend` | `.claude/roles/plan/frontend.md` | API module, hooks, components, pages, route, i18n, tests |
 | `ui-kit` | `.claude/roles/plan/ui-kit.md` | Component justification (required), props, variants, stories, tests, export |
 | `fullstack` | backend, then frontend | Both parts. Prefer sub-phases (`1a` backend, `1b` frontend) when each fits the size rule. |
-| `infra`, `docs` | the lead | Template or doc changes, with the AWS templates checks from `project.md` |
+| `infra`, `docs` | the lead | AWS template or doc changes; `infra` phases use the AWS templates checks from `project.md` |
 
 For each phase: read the role file and adopt that role. Give it the phase's goal, its
 prerequisites, what the next phase needs from it, the cross-cutting requirements (groups,

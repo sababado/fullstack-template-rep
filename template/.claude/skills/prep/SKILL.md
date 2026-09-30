@@ -385,12 +385,17 @@ both checks and is covered if either passes; this is the only OR across types.
 
 **Step B: verb signal** (one input to Step C, not a gate):
 
-The primary verb is: for Conditional and Given/When/Then ACs, the verb of the outcome
-clause; for Negative, the prohibited verb ("cannot **delete**"); for Data-shape, the
-structural verb (match with the `include` synonyms); for NFR, not used; for other
-Functional ACs, the last finite verb of the main clause (`can` is an auxiliary). If the
-outcome joins verbs with `and`/`or`, check each; the AC is covered if any verb is, and each
-uncovered verb is a sub-finding.
+The primary verb depends on the type:
+
+- **Negative:** the prohibited verb ("then I can't **delete** it").
+- **Data-shape:** the structural verb; match it with the `include` synonyms.
+- **NFR:** not used.
+- **Conditional and Functional:** the main verb of the outcome (the **then** clause, or the
+  clause after the comma). Without a Given/When/Then structure, the last finite verb of the
+  main clause ("User can **archive** a widget"; `can` is an auxiliary).
+
+If the outcome joins verbs with `and`/`or`, check each; the AC is covered if any verb is,
+and each uncovered verb is a sub-finding.
 
 A deliverable's first sentence **names the verb** when it contains:
 
@@ -460,14 +465,16 @@ types are unchanged. `fullstack`, `ui-kit`, `infra`, `docs`, or a missing or mal
 ### 7g. Implicit infrastructure, siblings, and contribution
 
 **Implicit infrastructure.** A deliverable that fails the rubric is exempt from the
-unjustified count only if all three hold:
+unjustified count only if both hold:
 
 1. Its first sentence starts with a bold infrastructure prefix: `Backend:`, `DB:`,
    `Migration:`, `Schema:`, `Types:`, `Contract:`, `Infra:`, `Worker:`, `Job:`, `Queue:`,
    `Cache:`, `Index:` (case-insensitive); or `Frontend:`/`UI:` when `domain` is `backend`.
 2. Its first sentence contains a noun that also appears in some AC of the phase's stories
    (same stem; plurals and possessives collapse).
-3. That's all: no judgment about whether an AC "needs" it.
+
+The test is fully mechanical: no judgment about whether an AC "needs" the deliverable. It
+is narrow on purpose, so deliverables declare their tier.
 
 **Sibling coverage.** For an AC this phase doesn't cover:
 
