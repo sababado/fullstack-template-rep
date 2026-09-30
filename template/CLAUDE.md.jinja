@@ -1,0 +1,87 @@
+# {{ project_name }}: rules for AI agents
+
+Read this file first, then the guide for each area you change. The guides are the
+source of truth for conventions; when a plan or a prompt disagrees with them, the
+guides win and you say so.
+
+| Area | Path | Read first |
+| --- | --- | --- |
+| API (FastAPI, Python 3.14) | `apps/backend/` | [apps/backend/docs/Agents.md](apps/backend/docs/Agents.md) |
+| Web app (React) | `apps/frontend/` | [apps/frontend/docs/Agents.md](apps/frontend/docs/Agents.md) |
+| Design system | `packages/ui-kit/` | [packages/ui-kit/docs/Agents.md](packages/ui-kit/docs/Agents.md) |
+| Shared TypeScript | `packages/shared/` | [packages/shared/docs/Agents.md](packages/shared/docs/Agents.md) |
+| AWS templates | `apps/*/template.yaml`, `apps/backend/infra/`, `infra/` | [docs/architecture.md](docs/architecture.md) |
+| Security | everywhere | [docs/SECURITY.md](docs/SECURITY.md) |
+
+New features follow [docs/NewFeatureChecklist.md](docs/NewFeatureChecklist.md).
+Past decisions are in [docs/decisions/](docs/decisions/README.md); don't reverse one
+without writing a new decision record.
+
+## Done means verified
+
+Before you say a change is done, run the checks for what you touched and report the
+real results, including failures:
+
+```bash
+npm run lint && npm run typecheck && npm test                  # TypeScript workspaces
+npm run test:stories -w @app/ui-kit                            # after UI kit changes
+(cd apps/backend && uv run ruff check . && uv run ruff format --check . \
+  && uv run mypy && uv run lint-imports && uv run pytest)      # backend
+npm run gen:api                                                # after any API change; commit the output
+```
+
+Integration tests need Postgres: `docker compose up -d db` and
+`TEST_DATABASE_URL=postgresql+asyncpg://app:app@localhost:5432/app_test`.
+If you couldn't run a check, say which one and why.
+
+## Rules
+
+**Always**
+
+- Read the code you're changing and its tests before editing. Don't guess at an API; open it.
+- Add or update tests with every behavior change.
+- Backend services raise `AppError` subclasses (never `HTTPException`); request schemas
+  extend `BaseSchema` and use `ShortString`/`LongString`; every query is scoped to the caller.
+- Frontend UI comes from `@app/ui-kit`, colors are semantic tokens (`bg-primary`, never
+  `bg-blue-600`), every user-visible string goes through i18n, and config is read only
+  through `apps/frontend/src/core/config/env.ts`.
+- Schema changes get an Alembic migration (`uv run alembic revision --autogenerate --rev-id NNNN`),
+  reviewed by hand before committing.
+- Keep changes scoped to the task. Note unrelated problems instead of fixing them silently.
+
+**Never**
+
+- Lower a coverage floor, skip or delete a failing test, or bypass hooks (`--no-verify`).
+- Edit generated files by hand: `apps/backend/openapi.json`,
+  `apps/frontend/src/core/api/schema.d.ts`, `apps/backend/src/requirements.txt`, lockfiles.
+- Edit a migration that has already been applied anywhere; write a new one.
+- Commit secrets, `.env` files, or real user data.
+- Push to `develop`, `staging`, or `main`, or merge a PR. Open a PR and let a person merge it.
+
+## Planning and tracking
+
+{% if tracker == "linear" -%}
+Epics and stories live in **Linear** (team key `{{ tracker_key }}`, story IDs like
+`{{ tracker_key }}-12`), read and written through the Linear MCP server. A commit or PR
+that finishes a story says `Closes {{ tracker_key }}-12`; earlier partial work says
+`Refs {{ tracker_key }}-12`. A bare mention doesn't count.
+{%- elif tracker == "github" -%}
+Epics and stories are **GitHub issues** in `{{ github_repository }}` (stories carry the
+`story` label; an epic issue lists its stories). A commit or PR that finishes a story
+says `Closes #12`; earlier partial work says `Refs #12`.
+{%- else -%}
+There is no external tracker. Each plan keeps its stories in
+`.implementation_plans/<plan>/STORIES.md` with IDs like `S1`, `S2`. A PR that finishes a
+story says `Closes <plan>#S1` in its description; earlier partial work says `Refs`.
+{%- endif %}
+
+Multi-step features get a plan in `.implementation_plans/` (see its
+[README](.implementation_plans/README.md)). The agent workflow that creates and runs
+plans is described in [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md).
+
+## Commits and pull requests
+
+- Conventional Commits: `feat:`, `fix:`, `refactor:`, `test:`, `docs:`, `chore:`.
+- Commit after each logical step; don't hold a large change uncommitted.
+- Fill in every section of the PR template, including the three questions.
+- CI must be green. The `PR check` job is the required check.

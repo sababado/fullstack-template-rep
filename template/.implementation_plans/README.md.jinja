@@ -1,0 +1,74 @@
+# Implementation plans
+
+A plan breaks a feature that needs more than one PR into phases that each ship on
+their own. Plans are written for AI agents and people alike: the agent workflow
+(`/plan-tech`, `/prep`, `/build`; see [docs/CONTRIBUTING.md](../docs/CONTRIBUTING.md))
+creates and follows them.
+
+The guides (`CLAUDE.md`, each area's `Agents.md`) outrank a plan. If a plan
+contradicts them, the guides win and the plan gets corrected.
+
+## Layout
+
+```
+.implementation_plans/
+  <plan-name>/                 kebab-case, no "plan" in the name
+    README.md                  overview, phase tracker, stories, dependencies, out of scope
+{%- if tracker == "none" %}
+    STORIES.md                 the stories and their acceptance criteria (IDs S1, S2, ...)
+{%- endif %}
+    phase-1-<slug>.md          one document per phase
+    phase-2-<slug>.md
+  DONE/<version>/<plan-name>/  finished plans, filed under the release that shipped them
+```
+
+## Plan README
+
+Front matter, then these sections: Status, Overview, Phase tracker (phase, size,
+status), Stories (which phase finishes each story), Dependencies, Out of scope,
+Security notes, Related docs.
+
+```yaml
+---
+plan: <plan-name>
+{%- if tracker == "linear" %}
+project: <Linear project UUID>
+{%- elif tracker == "github" %}
+epic: <GitHub issue number of the epic>
+{%- else %}
+stories: STORIES.md
+{%- endif %}
+---
+```
+
+## Phase documents
+
+Each phase is roughly 300-1000 changed lines and leaves the product working.
+
+```yaml
+---
+phase_id: 1
+title: Notes API
+{%- if tracker == "linear" %}
+implements: [{{ tracker_key }}-12, {{ tracker_key }}-13]
+{%- elif tracker == "github" %}
+implements: [12, 13]
+{%- else %}
+implements: [S1, S2]
+{%- endif %}
+depends_on: []          # direct dependencies only
+domain: backend         # backend | frontend | ui-kit | fullstack | infra | docs
+estimated_size: M       # S (< 300 lines) | M (300-700) | L (700-1000)
+---
+```
+
+Sections: Status, Required reading, Goal, Deliverables (numbered and testable),
+Verifiability checklist (commands), Security checklist, Implementation notes,
+Acceptance criteria, Hand-off to the next phase, Deferred items.
+
+## Lifecycle
+
+1. Status `Draft` while planning, `Ready` after `/prep` passes, `In progress`, then `Done`.
+2. A merged PR must leave its phase marked `Done` in the phase doc and the README tracker.
+3. When every phase is done, move the folder to `DONE/<version>/` in the release that
+   shipped it.

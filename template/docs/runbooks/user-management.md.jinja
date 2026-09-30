@@ -1,0 +1,50 @@
+# Runbook: manage users
+
+Users live in the Cognito user pool `{{ project_slug }}-<env>`. Sign-up is
+invite-only by default.
+
+Find the pool ID:
+
+```bash
+aws cloudformation describe-stacks --stack-name {{ project_slug }}-backend-dev \
+  --query "Stacks[0].Outputs[?OutputKey=='UserPoolId'].OutputValue" --output text
+```
+
+## Invite a user
+
+```bash
+aws cognito-idp admin-create-user --user-pool-id <pool-id> \
+  --username person@example.com \
+  --user-attributes Name=email,Value=person@example.com Name=email_verified,Value=true \
+  --desired-delivery-mediums EMAIL
+```
+
+Cognito emails a temporary password; the user sets a new one at first sign-in.
+
+## Make someone an admin
+
+```bash
+aws cognito-idp admin-add-user-to-group --user-pool-id <pool-id> \
+  --username person@example.com --group-name admin
+```
+
+The change applies at their next sign-in (the group is in the token).
+
+## Remove access
+
+```bash
+aws cognito-idp admin-disable-user --user-pool-id <pool-id> --username person@example.com
+aws cognito-idp admin-user-global-sign-out --user-pool-id <pool-id> --username person@example.com
+```
+
+Existing access tokens stay valid until they expire (at most one hour).
+
+## Allow self sign-up
+
+Set `AllowAdminCreateUserOnly: false` in `apps/backend/infra/auth.yaml` and deploy.
+Consider bot protection (Cognito threat protection) before opening sign-up publicly.
+
+## Emails in production
+
+Cognito's default sender is limited to a few emails per day. Before launch, configure
+Amazon SES as the user pool's email sender (`EmailConfiguration` in `auth.yaml`).

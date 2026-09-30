@@ -33,7 +33,7 @@ project_name:
 project_slug:
   type: str
   help: Short kebab-case identifier used in stack, bucket, and package names
-  default: "{{ project_name.strip() | lower | regex_replace('[^a-z0-9]+', '-') | regex_replace('^-|-$', '') }}"
+  default: "{{ project_name.strip() | lower | regex_replace(\"['’]\", '') | regex_replace('[^a-z0-9]+', '-') | regex_replace('^-|-$', '') }}"
   validator: >-
     {% if not (project_slug | regex_search('^[a-z][a-z0-9-]{1,22}[a-z0-9]$')) %}
     Use 3-24 lowercase letters, digits, and hyphens. Start with a letter and don't end with a hyphen.
