@@ -12,9 +12,9 @@ const pairs = [
 
 function Swatches() {
   return (
-    <ul className="gap-3 sm:grid-cols-2 grid">
+    <ul className="grid gap-3 sm:grid-cols-2">
       {pairs.map(([bg, text, name]) => (
-        <li key={name} className={`${bg} ${text} p-4 rounded-lg border`}>
+        <li key={name} className={`${bg} ${text} rounded-lg border p-4`}>
           <p className="font-medium">{name}</p>
           <p className="text-sm">
             <code>{bg}</code> + <code>{text}</code>

@@ -7,7 +7,7 @@ import { APP_NAME } from '../config/app';
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   cn(
-    'px-2 py-1 rounded-md text-muted-foreground hover:text-foreground',
+    'rounded-md px-2 py-1 text-muted-foreground hover:text-foreground',
     isActive && 'bg-muted text-foreground',
   );
 

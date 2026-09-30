@@ -5,7 +5,7 @@ import { Link } from 'react-router';
 export function NotFoundPage() {
   const { t } = useTranslation();
   return (
-    <main className="max-w-lg p-8 mx-auto">
+    <main className="mx-auto max-w-lg p-8">
       <h1 className="sr-only">{t('notFound.title')}</h1>
       <EmptyState
         title={t('notFound.title')}

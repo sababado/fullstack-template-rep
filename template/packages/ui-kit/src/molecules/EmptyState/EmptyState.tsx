@@ -11,9 +11,9 @@ export interface EmptyStateProps {
 
 export function EmptyState({ title, description, icon: Icon = Inbox, action }: EmptyStateProps) {
   return (
-    <div className="gap-3 px-6 py-12 flex flex-col items-center rounded-xl border border-dashed text-center">
+    <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed px-6 py-12 text-center">
       <Icon aria-hidden className="size-8 text-muted-foreground" />
-      <div className="gap-1 flex flex-col">
+      <div className="flex flex-col gap-1">
         <p className="font-medium">{title}</p>
         {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
       </div>

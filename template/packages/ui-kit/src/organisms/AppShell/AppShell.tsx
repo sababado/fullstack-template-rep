@@ -17,25 +17,25 @@ export function AppShell({ brand, nav, actions, skipLinkLabel, children }: AppSh
     <div className="flex min-h-dvh flex-col">
       <a
         href="#main"
-        className="px-3 py-2 focus:top-3 focus:left-3 sr-only z-50 rounded-md bg-primary text-primary-foreground focus:not-sr-only focus:fixed"
+        className="sr-only z-50 rounded-md bg-primary px-3 py-2 text-primary-foreground focus:not-sr-only focus:fixed focus:top-3 focus:left-3"
       >
         {skipLinkLabel}
       </a>
       <header className="border-b bg-surface">
-        <div className="h-14 max-w-5xl gap-6 px-4 mx-auto flex w-full items-center">
+        <div className="mx-auto flex h-14 w-full max-w-5xl items-center gap-6 px-4">
           <div className="font-semibold">{brand}</div>
           {nav ? (
-            <nav className="gap-4 text-sm flex flex-1 items-center">{nav}</nav>
+            <nav className="flex flex-1 items-center gap-4 text-sm">{nav}</nav>
           ) : (
             <div className="flex-1" />
           )}
-          {actions ? <div className="gap-2 flex items-center">{actions}</div> : null}
+          {actions ? <div className="flex items-center gap-2">{actions}</div> : null}
         </div>
       </header>
       <main
         id="main"
         tabIndex={-1}
-        className="max-w-5xl px-4 py-8 mx-auto w-full flex-1 focus:outline-hidden"
+        className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 focus:outline-hidden"
       >
         {children}
       </main>

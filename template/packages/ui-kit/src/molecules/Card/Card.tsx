@@ -4,14 +4,14 @@ import { cn } from '../../lib/cn';
 export function Card({ className, ...props }: ComponentProps<'section'>) {
   return (
     <section
-      className={cn('shadow-xs rounded-xl border bg-surface text-surface-foreground', className)}
+      className={cn('rounded-xl border bg-surface text-surface-foreground shadow-xs', className)}
       {...props}
     />
   );
 }
 
 export function CardHeader({ className, ...props }: ComponentProps<'div'>) {
-  return <div className={cn('gap-1 p-5 pb-0 flex flex-col', className)} {...props} />;
+  return <div className={cn('flex flex-col gap-1 p-5 pb-0', className)} {...props} />;
 }
 
 export function CardTitle({ className, ...props }: ComponentProps<'h2'>) {
@@ -27,5 +27,5 @@ export function CardContent({ className, ...props }: ComponentProps<'div'>) {
 }
 
 export function CardFooter({ className, ...props }: ComponentProps<'div'>) {
-  return <div className={cn('gap-2 p-5 pt-0 flex items-center', className)} {...props} />;
+  return <div className={cn('flex items-center gap-2 p-5 pt-0', className)} {...props} />;
 }

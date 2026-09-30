@@ -47,7 +47,7 @@ export function NoteForm() {
         <CardTitle id="new-note-heading">{t('form.heading')}</CardTitle>
       </CardHeader>
       <CardContent>
-        <form className="gap-4 flex flex-col" onSubmit={onSubmit} noValidate>
+        <form className="flex flex-col gap-4" onSubmit={onSubmit} noValidate>
           {formError ? <Alert variant="destructive" title={formError} /> : null}
           <FormField
             label={t('form.titleLabel')}

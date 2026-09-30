@@ -28,7 +28,7 @@ export const Primary: Story = {
 
 export const Variants: Story = {
   render: (args) => (
-    <div className="gap-3 flex flex-wrap">
+    <div className="flex flex-wrap gap-3">
       <Button {...args} variant="primary">
         Primary
       </Button>

@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import { cn } from '../../lib/cn';
 
 const alertVariants = cva(
-  'gap-3 p-4 text-sm [&>svg]:mt-0.5 [&>svg]:size-4 flex rounded-lg border',
+  'flex gap-3 rounded-lg border p-4 text-sm [&>svg]:mt-0.5 [&>svg]:size-4',
   {
     variants: {
       variant: {
@@ -35,7 +35,7 @@ export function Alert({ variant, title, children, className }: AlertProps) {
       className={cn(alertVariants({ variant }), className)}
     >
       <Icon aria-hidden />
-      <div className="gap-1 flex flex-col">
+      <div className="flex flex-col gap-1">
         <p className="font-medium">{title}</p>
         {children ? <div className="text-muted-foreground">{children}</div> : null}
       </div>

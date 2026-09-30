@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 export function RouteErrorPage() {
   const { t } = useTranslation();
   return (
-    <main className="max-w-lg gap-4 p-8 mx-auto flex flex-col">
+    <main className="mx-auto flex max-w-lg flex-col gap-4 p-8">
       <Alert variant="destructive" title={t('routeError.title')}>
         {t('routeError.body')}
       </Alert>

@@ -55,7 +55,7 @@ The project starts on Tailwind 4, which is configured in CSS. There is no
   `@import '@app/ui-kit/styles.css';` (see `apps/frontend/src/index.css`). The Vite
   plugin `@tailwindcss/vite` does the rest.
 - Prettier sorts class names with `prettier-plugin-tailwindcss`, which reads the theme
-  from this file (`tailwindStylesheet` in `.prettierrc.json`).
+  through `apps/frontend/src/index.css`, which imports Tailwind and this file (`tailwindStylesheet` in `.prettierrc.json`).
 
 **Write v4, not v3.** Most examples online are v3. Tailwind silently ignores classes
 that don't exist, so a v3 habit produces no CSS rather than an error.

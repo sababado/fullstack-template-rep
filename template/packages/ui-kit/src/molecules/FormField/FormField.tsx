@@ -27,7 +27,7 @@ export function FormField({ label, hint, error, required, children }: FormFieldP
   const describedBy = [hintId, errorId].filter(Boolean).join(' ') || undefined;
 
   return (
-    <div className="gap-1.5 flex flex-col">
+    <div className="flex flex-col gap-1.5">
       <Label htmlFor={id}>
         {label}
         {required ? (

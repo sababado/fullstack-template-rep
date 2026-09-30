@@ -17,7 +17,7 @@ export function RequireAuth() {
 
   if (auth.status === 'error') {
     return (
-      <div className="max-w-md gap-4 p-8 mx-auto flex flex-col">
+      <div className="mx-auto flex max-w-md flex-col gap-4 p-8">
         <Alert variant="destructive" title={t('auth.failed')}>
           {auth.error?.message}
         </Alert>

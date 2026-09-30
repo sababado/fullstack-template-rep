@@ -22,7 +22,7 @@ export function NoteList() {
 
   if (notes.isPending) {
     return (
-      <div className="py-12 flex justify-center">
+      <div className="flex justify-center py-12">
         <Spinner label={t('loading')} className="size-6" />
       </div>
     );
@@ -30,7 +30,7 @@ export function NoteList() {
 
   if (notes.isError) {
     return (
-      <div className="gap-3 flex flex-col items-start">
+      <div className="flex flex-col items-start gap-3">
         <Alert variant="destructive" title={t('loadFailed')}>
           {errorMessage(notes.error)}
         </Alert>
@@ -48,17 +48,17 @@ export function NoteList() {
   }
 
   return (
-    <div className="gap-3 flex flex-col">
+    <div className="flex flex-col gap-3">
       <p className="text-sm text-muted-foreground">{t('count', { count: notes.data.length })}</p>
       {deleteNote.isError ? (
         <Alert variant="destructive" title={errorMessage(deleteNote.error)} />
       ) : null}
-      <ul className="gap-3 flex flex-col">
+      <ul className="flex flex-col gap-3">
         {notes.data.map((note) => (
           <li key={note.id}>
             <Card aria-labelledby={`note-${note.id}`}>
-              <CardHeader className="gap-4 flex-row items-start justify-between">
-                <div className="gap-1 flex flex-col">
+              <CardHeader className="flex-row items-start justify-between gap-4">
+                <div className="flex flex-col gap-1">
                   <CardTitle id={`note-${note.id}`}>{note.title}</CardTitle>
                   <CardDescription>
                     {t('item.updated', { date: new Date(note.updated_at) })}

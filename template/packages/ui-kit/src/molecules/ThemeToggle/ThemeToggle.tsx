@@ -23,7 +23,7 @@ export function ThemeToggle({ label, optionLabels, className }: ThemeToggleProps
     <div
       role="group"
       aria-label={label}
-      className={cn('p-0.5 inline-flex rounded-md border bg-surface', className)}
+      className={cn('inline-flex rounded-md border bg-surface p-0.5', className)}
     >
       {options.map(({ value, Icon }) => (
         <button
@@ -32,7 +32,7 @@ export function ThemeToggle({ label, optionLabels, className }: ThemeToggleProps
           aria-label={optionLabels[value]}
           aria-pressed={theme === value}
           onClick={() => setTheme(value)}
-          className="size-8 inline-flex items-center justify-center rounded-sm text-muted-foreground hover:text-foreground aria-pressed:bg-muted aria-pressed:text-foreground"
+          className="inline-flex size-8 items-center justify-center rounded-sm text-muted-foreground hover:text-foreground aria-pressed:bg-muted aria-pressed:text-foreground"
         >
           <Icon aria-hidden className="size-4" />
         </button>

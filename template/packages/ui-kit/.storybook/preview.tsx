@@ -6,7 +6,7 @@ const withTheme: Decorator = (Story, context) => {
   const dark = context.globals['theme'] === 'dark';
   document.documentElement.classList.toggle('dark', dark);
   return (
-    <div className="min-h-24 p-6 bg-background text-foreground">
+    <div className="min-h-24 bg-background p-6 text-foreground">
       <Story />
     </div>
   );
