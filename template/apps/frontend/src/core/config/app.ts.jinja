@@ -1,0 +1,2 @@
+/** Set when the project was generated from the template. */
+export const APP_NAME = {% if "'" in project_name %}"{{ project_name | replace('\\', '\\\\') | replace('"', '\\"') }}"{% else %}'{{ project_name | replace('\\', '\\\\') }}'{% endif %};

@@ -1,0 +1,104 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  RDS PostgreSQL 18 in private subnets. The master password lives in an
+  RDS-managed Secrets Manager secret that rotates automatically; the API reads
+  it for each new connection, so rotation needs no redeploy.
+
+Parameters:
+  ProjectSlug:
+    Type: String
+  AppEnv:
+    Type: String
+    AllowedValues: [dev, staging, prod]
+  SubnetIds:
+    Type: CommaDelimitedList
+  DatabaseSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+  InstanceClass:
+    Type: String
+    Default: db.t4g.micro
+  AlarmTopicArn:
+    Type: String
+
+Conditions:
+  IsProd: !Equals [!Ref AppEnv, prod]
+
+Resources:
+  SubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: !Sub '${ProjectSlug} ${AppEnv} database subnets'
+      SubnetIds: !Ref SubnetIds
+
+  Database:
+    Type: AWS::RDS::DBInstance
+    # Keep a final snapshot if the stack or instance is ever deleted or replaced.
+    DeletionPolicy: Snapshot
+    UpdateReplacePolicy: Snapshot
+    Properties:
+      DBInstanceIdentifier: !Sub '${ProjectSlug}-${AppEnv}'
+      Engine: postgres
+      EngineVersion: '18'
+      DBInstanceClass: !Ref InstanceClass
+      DBName: app
+      MasterUsername: app_admin
+      ManageMasterUserPassword: true
+      AllocatedStorage: '20'
+      MaxAllocatedStorage: 100
+      StorageType: gp3
+      StorageEncrypted: true
+      DBSubnetGroupName: !Ref SubnetGroup
+      VPCSecurityGroups: [!Ref DatabaseSecurityGroupId]
+      PubliclyAccessible: false
+      MultiAZ: !If [IsProd, true, false]
+      BackupRetentionPeriod: !If [IsProd, 14, 1]
+      DeletionProtection: !If [IsProd, true, false]
+      AutoMinorVersionUpgrade: true
+      CopyTagsToSnapshot: true
+      EnableCloudwatchLogsExports: [postgresql]
+
+  CpuAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: !Sub '${ProjectSlug} ${AppEnv}: database CPU above 80% for 15 minutes'
+      Namespace: AWS/RDS
+      MetricName: CPUUtilization
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: !Ref Database
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 3
+      Threshold: 80
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlarmTopicArn]
+      OKActions: [!Ref AlarmTopicArn]
+
+  StorageAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: !Sub '${ProjectSlug} ${AppEnv}: database free storage below 2 GB'
+      Namespace: AWS/RDS
+      MetricName: FreeStorageSpace
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: !Ref Database
+      Statistic: Minimum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 2000000000
+      ComparisonOperator: LessThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlarmTopicArn]
+      OKActions: [!Ref AlarmTopicArn]
+
+Outputs:
+  Host:
+    Value: !GetAtt Database.Endpoint.Address
+  Port:
+    Value: !GetAtt Database.Endpoint.Port
+  Name:
+    Value: app
+  SecretArn:
+    Value: !GetAtt Database.MasterUserSecret.SecretArn

@@ -1,0 +1,94 @@
+# Copier configuration for the fullstack template.
+# Generate:  uvx copier copy --trust gh:sababado/fullstack-template-rep my-app
+# Update:    cd my-app && uvx copier update --trust
+
+_min_copier_version: "9.18"
+_subdirectory: template
+_templates_suffix: .jinja
+_answers_file: .copier-answers.yml
+
+_message_after_copy: |
+  {{ project_name }} is ready in {{ _copier_conf.dst_path }}.
+
+  Next steps:
+    cd {{ _copier_conf.dst_path }}
+    git init -b develop && git add -A && git commit -m "chore: generate from fullstack template"
+    docs/dev_guides/onboarding/1_FIRST_TIME_SETUP.md walks you through the rest.
+  {%- if tracker == "none" %}
+
+  You chose no issue tracker. Stories will live in .implementation_plans/<plan>/STORIES.md.
+  To switch later, change `tracker` in .copier-answers.yml and run `copier update`.
+  {%- endif %}
+
+_message_after_update: |
+  Review the diff, resolve any conflicts (*.rej files), then regenerate lockfiles:
+    npm install && (cd apps/backend && uv lock)
+
+project_name:
+  type: str
+  help: Human-readable project name
+  default: My App
+  validator: "{% if not project_name.strip() %}A project name is required.{% endif %}"
+
+project_slug:
+  type: str
+  help: Short kebab-case identifier used in stack, bucket, and package names
+  default: "{{ project_name.strip() | lower | regex_replace(\"['’]\", '') | regex_replace('[^a-z0-9]+', '-') | regex_replace('^-|-$', '') }}"
+  validator: >-
+    {% if not (project_slug | regex_search('^[a-z][a-z0-9-]{1,22}[a-z0-9]$')) %}
+    Use 3-24 lowercase letters, digits, and hyphens. Start with a letter and don't end with a hyphen.
+    {% endif %}
+
+project_description:
+  type: str
+  help: One sentence describing what the project does
+  default: A full-stack web application.
+
+github_repository:
+  type: str
+  help: GitHub repository as owner/name (the deploy role trusts only this repository)
+  default: "your-org/{{ project_slug }}"
+  validator: >-
+    {% if not (github_repository | regex_search('^[A-Za-z0-9-]+/[A-Za-z0-9._-]+$')) %}
+    Use the form owner/name.
+    {% endif %}
+
+code_owner:
+  type: str
+  help: GitHub user or team that must review sensitive paths (for example @octocat or @org/platform)
+  default: "@{{ github_repository.split('/')[0] }}"
+  validator: >-
+    {% if not code_owner.startswith('@') %}Start with @.{% endif %}
+
+aws_region:
+  type: str
+  help: AWS region for the backend and the frontend bucket
+  default: us-east-1
+  validator: >-
+    {% if not (aws_region | regex_search('^[a-z]{2}(-gov)?-[a-z]+-[0-9]$')) %}
+    Use an AWS region code such as us-east-1.
+    {% endif %}
+
+tracker:
+  type: str
+  help: Where do epics and stories live? The planning agents and the PR template use this.
+  choices:
+    Linear: linear
+    GitHub Issues: github
+    None (stories live in .implementation_plans/<plan>/STORIES.md): none
+  default: github
+
+tracker_key:
+  type: str
+  help: Linear team key that prefixes story IDs (ENG for ENG-12)
+  when: "{{ tracker == 'linear' }}"
+  default: "{{ project_slug.replace('-', '')[:3] | upper }}"
+  validator: >-
+    {% if tracker == 'linear' and not (tracker_key | regex_search('^[A-Z][A-Z0-9]{1,4}$')) %}
+    Use 2-5 uppercase letters or digits, starting with a letter.
+    {% endif %}
+
+include_claude_review:
+  type: bool
+  help: Add the automated Claude PR review workflow? (needs a CLAUDE_CODE_OAUTH_TOKEN repository secret)
+  default: true

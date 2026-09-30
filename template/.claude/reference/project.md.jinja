@@ -1,0 +1,85 @@
+# Project facts for agents
+
+Every skill, subagent, and role in `.claude/` reads this file for project-specific
+facts, so the rest of the kit stays the same across projects. When the project changes
+shape (a new workspace, a new check), update this file first.
+
+## Identity
+
+- **Project:** {{ project_name }} (`{{ project_slug }}`)
+- **Repository:** `{{ github_repository }}`
+- **Base branch:** `develop`. Feature branches: `feature/<plan-name>` (planned work) or
+  `fix/<name>`, `chore/<name>`. Never push to `develop`, `staging`, or `main`.
+- **Issue tracker:** see [tracker.md](tracker.md) for every tracker operation.
+
+## Workspaces
+
+| Workspace | Path | Guide | Checks (run from the repo root) |
+| --- | --- | --- | --- |
+| API | `apps/backend/` | `apps/backend/docs/Agents.md` | `cd apps/backend && uv run ruff check . && uv run ruff format --check . && uv run mypy && uv run lint-imports && uv run pytest` |
+| Web app | `apps/frontend/` | `apps/frontend/docs/Agents.md` | `npm run lint && npm run typecheck -w @app/frontend && npm test -w @app/frontend && npm run build -w @app/frontend` |
+| UI kit | `packages/ui-kit/` | `packages/ui-kit/docs/Agents.md` | `npm run typecheck -w @app/ui-kit && npm test -w @app/ui-kit && npm run test:stories -w @app/ui-kit` |
+| Shared TS | `packages/shared/` | `packages/shared/docs/Agents.md` | `npm run typecheck -w @app/shared && npm test -w @app/shared` |
+| AWS templates | `apps/backend/template.yaml`, `apps/backend/infra/`, `apps/frontend/template.yaml`, `infra/` | `docs/architecture.md` | `uvx cfn-lint==1.57.1 apps/backend/template.yaml apps/backend/infra/*.yaml apps/frontend/template.yaml infra/*.yaml` |
+| Docs | `docs/`, `**/docs/`, `README.md`, `CHANGELOG.md` | `docs/README.md` | none |
+
+Integration tests need Postgres: `docker compose up -d db` and
+`TEST_DATABASE_URL=postgresql+asyncpg://app:app@localhost:5432/app_test`.
+After any API change run `npm run gen:api` and commit `apps/backend/openapi.json` and
+`apps/frontend/src/core/api/schema.d.ts`.
+
+**Full check suite** (the "integration gate"):
+
+```bash
+npm run lint && npm run typecheck && npm test
+npm run test:stories -w @app/ui-kit
+(cd apps/backend && uv run ruff check . && uv run ruff format --check . && uv run mypy \
+  && uv run lint-imports && uv run pytest)
+npm run gen:api && git diff --exit-code
+npm run build
+```
+
+## Where things are documented
+
+| Topic | File |
+| --- | --- |
+| Rules for agents | `CLAUDE.md` |
+| Architecture | `docs/architecture.md` |
+| Feature locations across layers | `docs/feature-map.md` |
+| New feature checklist | `docs/NewFeatureChecklist.md` |
+| Security rules | `docs/SECURITY.md` |
+| Decisions and their invariants | `docs/decisions/` |
+| Versioning and changelog | `docs/VERSIONING.md`, `CHANGELOG.md` |
+| Plan and phase format | `.implementation_plans/README.md` |
+| Runbooks | `docs/runbooks/` |
+
+## Review specialists
+
+`/review` and `/build` pick specialist reviewers by the paths a change touches.
+
+| Changed paths | Role file |
+| --- | --- |
+| `apps/backend/**` (including its `infra/` and `template.yaml`), `infra/**` | `.claude/roles/review/backend.md` |
+| `apps/frontend/**`, `packages/shared/**` | `.claude/roles/review/frontend.md` |
+| `packages/ui-kit/**` | `.claude/roles/review/ui-kit.md` |
+| `docs/**`, `**/*.md` | `.claude/roles/review/docs.md` |
+
+When two or more specialists apply, the lead reviewer (`review-lead`) also reviews the
+cross-cutting concerns.
+
+## Personas
+
+The people who use the product. Planning uses these names as the persona on every
+story. Replace the examples with the real ones.
+
+| Persona | Who they are |
+| --- | --- |
+| `admin` | Manages the product and its users (Cognito group `admin`) |
+| `user` | A signed-in person using the product |
+| `visitor` | Someone who isn't signed in |
+| `developer` | Someone changing the code (for internal stories only) |
+
+## Decisions agents must check
+
+Changes are checked against the numbered invariants in every `Accepted` record in
+`docs/decisions/` (the `decision-checker` subagent does this).

@@ -1,0 +1,22 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Introduction" />
+
+# UI kit
+
+Every component the apps render lives here. Apps compose these; they don't
+style raw HTML elements themselves.
+
+## Rules
+
+- **Semantic tokens only.** Use `bg-background`, `text-muted-foreground`, `bg-primary`,
+  `border-border`, and the other tokens in `src/styles.css`. Raw palette classes such as
+  `bg-gray-900` don't switch with the theme.
+- **No hardcoded copy.** Components take every user-visible string (labels, accessible
+  names) as props, so the apps translate them.
+- **Accessible by default.** Each story runs as a test in Chromium with axe; any
+  accessibility violation fails CI.
+- **Atomic layout.** `atoms/` are primitives, `molecules/` combine atoms,
+  `organisms/` are page sections. Each component has a story and a unit test.
+
+Toggle light and dark mode from the toolbar to check both themes.

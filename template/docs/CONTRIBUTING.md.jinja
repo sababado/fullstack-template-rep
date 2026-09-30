@@ -1,0 +1,341 @@
+# Contributing to {{ project_name }}
+
+There are two ways to make a change here: by hand, or with the Claude Code agent kit in
+`.claude/`. Both end the same way: a branch, the same checks, a pull request into
+`develop` that follows the template, and a person who reviews and merges it. Agents never
+merge.
+
+- [Rules for everyone](#rules-for-everyone)
+- [Contributing by hand](#contributing-by-hand)
+- [Contributing with agents](#contributing-with-agents): [setup](#one-time-setup),
+  [the pipeline](#the-pipeline), [small changes](#small-changes),
+  [/offshore](#offshore-unattended-runs), [the teams](#the-teams),
+  [what people own](#what-people-own)
+- [Changing the agent kit](#changing-the-agent-kit)
+- [Troubleshooting](#troubleshooting)
+
+## Rules for everyone
+
+- **Branches.** Branch from `develop`: `feature/<name>` (for a plan, `feature/<plan-name>`),
+  `fix/<name>`, `chore/<name>`. PRs go into `develop`; `staging` and `main` only receive
+  promotions. Nobody pushes to `develop`, `staging`, or `main` directly.
+- **Commits.** [Conventional Commits](https://www.conventionalcommits.org/): `feat:`, `fix:`,
+  `refactor:`, `test:`, `docs:`, `chore:`.
+- **Conventions.** [CLAUDE.md](../CLAUDE.md) and each area's `Agents.md` are the rules for
+  people and agents alike. When a plan or a prompt disagrees with them, they win.
+- **Done means verified.** Run the checks for what you touched
+  ([CLAUDE.md](../CLAUDE.md#done-means-verified)) and report real results. CI runs the
+  same checks; the `PR check` job must be green before merging.
+- **Stories.** A PR that finishes a story says so in its Closes section:
+{%- if tracker == "linear" %}
+  `Closes {{ tracker_key }}-12` (or `Refs {{ tracker_key }}-12` for partial work).
+{%- elif tracker == "github" %}
+  `Closes #12` (or `Refs #12` for partial work).
+{%- else %}
+  `Closes <plan>#S3` (or `Refs <plan>#S3` for partial work).
+{%- endif %}
+- **Decisions.** Something decided on purpose has a record in
+  [decisions/](decisions/README.md). Reversing one takes a new record, not just a PR.
+
+## Contributing by hand
+
+1. Set up once with [First-time setup](dev_guides/onboarding/1_FIRST_TIME_SETUP.md); the
+   daily loop is in [Daily workflow](dev_guides/onboarding/2_DAILY_WORKFLOW.md).
+2. For a feature, follow [NewFeatureChecklist.md](NewFeatureChecklist.md). It lists
+   every layer a feature touches and the order to build them in.
+3. Write tests with the change. Coverage floors only go up.
+4. After an API change run `npm run gen:api` and commit both generated files.
+5. Run the checks, push, and open a PR. Fill in every section of the template, including
+   the three questions: reviewers use them as acceptance criteria.
+6. Add a line under `## [Unreleased]` in [CHANGELOG.md](../CHANGELOG.md) for anything a
+   user or operator would notice ([VERSIONING.md](VERSIONING.md)).
+
+Multi-PR features get a plan in [.implementation_plans/](../.implementation_plans/README.md),
+whether a person or an agent writes it.
+
+## Contributing with agents
+
+The kit is a set of skills (slash commands) that plan, build, review, and document work,
+each run by a small team of specialist agents. It encodes this repository's conventions,
+so a new contributor's agent works the way the rest of the team does.
+
+### What's in `.claude/`
+
+| Path | What it is |
+| --- | --- |
+| `reference/project.md` | Project facts every skill reads: workspaces, check commands, doc locations, review specialists, personas. |
+| `reference/tracker.md` | How skills talk to the issue tracker: seven numbered operations, the story format, and ID rules. |
+| `skills/<name>/SKILL.md` | The slash commands (`/plan-product`, `/build`, ...). Each one orchestrates a team. |
+| `agents/<name>.md` | Registered subagents. Each runs in a fresh context with its own model and a restricted tool list. |
+| `roles/<skill>/<role>.md` | Personas a skill adopts inline (Architect, Coder, Critic, ...). No frontmatter, no separate context. |
+| `hooks/guardrails.sh` | Safety net for unattended runs (see [/offshore](#offshore-unattended-runs)). |
+| `settings.json` | Wires the hook and pre-approves the check commands so agents don't prompt for them. |
+
+`CLAUDE.md` and the `Agents.md` guides sit above all of this. The kit points at them rather
+than copying them, so fixing a convention there fixes it for every agent.
+
+### One-time setup
+
+1. **Install [Claude Code](https://code.claude.com/docs)** and open it in the repository.
+   Accept the workspace trust prompt; until you do, `.claude/settings.json` permissions are
+   ignored and every check command asks first.
+2. **Install `jq`.** The guardrail hook needs it to read tool calls; without it the hook
+   allows everything.
+3. **Connect the tracker.**
+{%- if tracker == "linear" %}
+   Stories live in Linear, team `{{ tracker_key }}`. `.mcp.json` configures Linear's MCP
+   server; run `/mcp` in Claude Code and sign in once. Then create the labels stories use
+   (Linear → Settings → Labels): one per persona (`admin`, `user`, `visitor`, `developer`,
+   or your own from `.claude/reference/project.md`) and `uncertainty/low`,
+   `uncertainty/med`, `uncertainty/high`. Skills never invent labels; they tell you
+   which one is missing. Connect Linear's GitHub integration so `Closes {{ tracker_key }}-12`
+   moves the issue when the PR merges.
+{%- elif tracker == "github" %}
+   Stories are GitHub issues in `{{ github_repository }}`. The agent needs the GitHub MCP
+   tools or an authenticated `gh` (`gh auth login`). Create the labels once:
+
+   ```bash
+   for l in epic story persona:admin persona:user persona:visitor persona:developer \
+     priority:must priority:should priority:could size:S size:M size:L \
+     uncertainty:low uncertainty:med uncertainty:high; do
+     gh label create "$l" --repo {{ github_repository }} 2>/dev/null || true
+   done
+   ```
+
+   Stories are attached to their epic as sub-issues; `Closes #12` closes an issue when the
+   PR merges.
+{%- else %}
+   There is no external tracker: each plan keeps its stories in
+   `.implementation_plans/<plan>/STORIES.md` (IDs `S1`, `S2`, ...), committed with the
+   plan. Nothing to connect.
+{%- endif %}
+
+   To switch trackers later, change `tracker` in `.copier-answers.yml` and run
+   `uvx copier update --trust`; the skills only ever go through `.claude/reference/tracker.md`,
+   which is regenerated.
+4. **Make the personas yours.** Replace the examples in the Personas table of
+   `.claude/reference/project.md`. Every story names one.
+5. **Docker** for integration tests, and Chromium for story tests
+   (`npx playwright install chromium`), as for manual work.
+{%- if include_claude_review %}
+6. **Automated PR review.** `.github/workflows/claude-review.yml` reviews every PR push.
+   Add the repository secret `CLAUDE_CODE_OAUTH_TOKEN` (create one with
+   `claude setup-token`).
+{%- endif %}
+
+### The pipeline
+
+```
+/plan-product → /plan-tech                      what to build, then how, in phases
+→ for each phase: /prep → /build → /review      one reviewable change at a time
+→ /write-docs → push and open the PR → /address-pr-comments
+```
+
+| Step | You type | It reads | It produces | You check |
+| --- | --- | --- | --- | --- |
+| Product plan | `/plan-product <feature idea>` (`--epic <ref> <use case>` to extend an epic, `--review <plan>` to find uncovered flows) | Existing epics, plans, `docs/feature-map.md`, the decision records | An epic and stories with Given/When/Then criteria, **{% if tracker == "none" %}written to the plan's `STORIES.md`{% else %}created in the tracker{% endif %} only after you approve the draft** | Personas, scope, and that each story is something a user can see |
+| Tech plan | `/plan-tech <epic or feature>` | The epic's stories, the codebase, the area guides | `.implementation_plans/<plan>/`: a README and one doc per phase, each phase one reviewable PR mapped to the stories it implements | Phase boundaries, the assumptions it lists, anything touching auth, data, or infrastructure |
+| Prep | `/prep <plan> phase <N>` | The phase doc and the code it names | READY TO IMPLEMENT (the phase becomes `Ready`), NEEDS REVISION, or BLOCKED, with a punch list | Anything BLOCKED, or a revision you disagree with |
+| Build | `/build <plan> phase <N>` (or `/build <instructions>` for ad-hoc work) | The phase doc, the prep report, the guides | Commits on your branch, all checks run, an independent review, the phase marked `Done` with `Closes`/`Refs` lines | The final report: every deliverable DONE and every check PASS, or said otherwise |
+| Review | `/review` (`phase <N> of <plan>`, `against <branch>`, `just backend`, `3 cycles`, `--full`) | The branch diff, the decision records | BLOCK / WARN / NOTE findings and a verdict: APPROVED, CHANGES REQUESTED, or NEEDS DISCUSSION | That BLOCKs were fixed and WARNs were fixed or answered |
+| Docs | `/write-docs <plan, phase, PR, or description>` | What changed | Updated guides, `docs/feature-map.md`, and an `[Unreleased]` changelog entry, each verified | The wording of anything user-facing |
+| PR feedback | `/address-pr-comments [PR]` | Every review thread and failing check | Root-cause fixes, a reply on every thread, resolved threads, a push | That the replies say what actually changed |
+
+`/build` doesn't push or open the PR. Push the branch and open the PR yourself (or ask the
+agent to), filling in the template; the Closes section repeats the keyword lines `/build`
+wrote.
+
+**A typical feature:**
+
+```text
+/plan-product let signed-in users share a note with another user by email
+  → approve or edit the drafted stories; they're created in the tracker
+/plan-tech note sharing
+  → read .implementation_plans/note-sharing/, adjust, commit
+git switch -c feature/note-sharing
+/prep note-sharing phase 1     → READY TO IMPLEMENT
+/build note-sharing phase 1    → commits, checks, review, phase 1 Done
+/review                        → APPROVED
+... phases 2..N the same way; one PR per phase, or one at the end ...
+/write-docs note-sharing
+git push -u origin feature/note-sharing, open the PR
+/address-pr-comments           → after reviewers and CI have had their say
+```
+
+The pipeline skills run only when you type them (or `/offshore` calls them); an ordinary
+request in chat doesn't start one.
+
+### Small changes
+
+A bug fix, a copy change, or a one-file refactor doesn't need a plan. Ask the agent
+directly, or use `/build <instructions>` to get the same Coder, Critic, Validator, and
+independent-review loop without a phase doc. Run `/review` before you open the PR either
+way.
+
+When an agent is guessing or cutting corners, type `/rigor <what went wrong>`. It stops,
+finds what it assumed instead of verified, and redoes the work.
+
+### /offshore: unattended runs
+
+`/offshore <plan, story or epic ID, or description>` runs the whole pipeline with no one
+watching and leaves you a green PR into `develop`, **open and unmerged**, plus a briefing.
+Use it for well-specified work you'd otherwise supervise step by step. Only a person can
+start it; no skill or agent may.
+
+```
+plan-product (if needed) → plan-tech (if needed)
+→ per phase: prep → build → review (1-3 rounds by diff size)
+→ integration gate (the full check suite) → write-docs → MANUAL_QA.md
+→ one PR into develop → fix its CI and review findings → stop, unmerged → BRIEFING.md
+```
+
+**Before you start it:** Docker running (or the integration tests are the one suite it may
+skip, and it tells you), `jq` installed, GitHub access (MCP tools or `gh`), and the tracker
+connected. For anything product-shaped, run `/plan-product` yourself first so you approve
+the stories: an unattended run decides open questions on its own and lists them.
+
+**What you get back**, in `.implementation_plans/<plan>/`:
+
+| File | What it is |
+| --- | --- |
+| `BRIEFING.md` | What happened, every decision it made on its own, and your Action Items (always ending with "review the PR, work through `MANUAL_QA.md`, merge when ready") |
+| `MANUAL_QA.md` | Steps for a person to accept the feature in a browser. The run writes them; it doesn't run them. |
+| `CHECKPOINT.json` | Run state. Re-typing `/offshore <plan>` resumes from it after a crash or a stop. |
+
+**Guardrails.** While a run is active, `.offshore/active` exists, and
+`.claude/hooks/guardrails.sh` blocks pushes to `develop`/`staging`/`main`, force pushes
+without `--force-with-lease`, `--no-verify`, `git reset --hard`, `git commit --amend`,
+merging a PR, and questions to you. Every decision and spawn is logged in `.offshore/`.
+The hook is a net under the rules, not the rules: the skill follows them whether or not the
+hook would catch a slip. To stop a run, tell it "stop"; it finishes at the next safe point
+and writes the briefing. If a run died and left `.offshore/active` behind, delete it.
+
+### The teams
+
+Each skill is an orchestrator with a team. Team members come in two kinds:
+
+- **Subagents** (`.claude/agents/`) run in a fresh context with their own model and a
+  restricted tool list, and return a structured result. The kit uses them where fresh eyes
+  matter (the independent reviewer never saw the code being written) or where the work
+  would flood the orchestrator's context (checking every claim in a phase doc).
+- **Roles** (`.claude/roles/`) are personas the orchestrator reads and adopts inline, one
+  at a time, in its own context. They're cheap and share everything the orchestrator
+  knows, which suits steps that build on each other (Architect → Coder → Critic).
+
+A subagent can't spawn subagents. When a skill runs inside one (as every step of
+`/offshore` does), it reads the subagent's file and applies it inline, and says so in its
+report.
+
+| Skill | Model | Team (roles inline, **subagents** in bold) |
+| --- | --- | --- |
+| `/plan-product` | sonnet | Overlap Analyst, **domain-expert** (fable), AC Reviewer, UX Flow Analyst |
+| `/plan-tech` | fable | Lead Planner, Backend / Frontend / UI Kit Planners, **decision-checker** (opus) |
+| `/prep` | sonnet | **drift-detector** (sonnet), **decision-checker** (opus), **prep-auditor** (opus) |
+| `/build` | opus | Architect, UI Designer, Coder, Critic, Validator, specialist reviewers, Fixer, **decision-checker** (opus), **review-lead** (fable) |
+| `/review` | sonnet | Backend / Frontend / UI Kit / Docs reviewers (picked by the paths changed), lead cross-cutting review, **decision-checker** (opus), **review-lead** (fable) for extra cycles |
+| `/write-docs` | sonnet | **scribe**, **scribe-changelog**, **scribe-reviewer** (all sonnet) |
+| `/address-pr-comments` | opus | none; it works the threads itself |
+| `/offshore` | opus | One general-purpose subagent per unit of work, each running the skills above |
+
+**Model tiers** follow the judgement a step needs: `fable` where a mistake is expensive and
+hard to spot later (the technical plan, the independent review, domain constraints),
+`opus` for building and adversarial checking, `sonnet` for orchestration, mechanical
+verification, and docs. A skill's `model` and `effort` apply when you type the command; a
+skill invoked by another agent runs on that agent's model. A subagent's apply every time
+it's spawned.
+
+### What people own
+
+Agents do the typing and a lot of the checking. These stay with people:
+
+- **What to build.** Approving stories (`/plan-product` creates nothing until you say so),
+  the personas, and scope.
+- **Reading the plan** before the first `/prep`, above all for auth, data retention,
+  migrations, and cost.
+- **Decisions the plan doesn't settle.** Skills stop and ask (an unattended run lists them
+  in the briefing). Accepting a decision record is always a person's call.
+- **Reviewing the PR.** The agents' review is a first pass, not an approval. Read these
+  closely every time: migrations, auth and data scoping, anything under `infra/` or a
+  `template.yaml` (IAM above all), new dependencies, and changes to `.claude/` or
+  `.github/`.
+- **Manual QA** from `MANUAL_QA.md` or the PR's three questions.
+- **Merging, promoting, and deploying.** Agents never merge; promotions to `staging` and
+  `main` and the `prod` environment's approval are people's.
+
+## Changing the agent kit
+
+The kit is code: change it in a PR, and review it like code. It came from the project
+template, so a change that isn't specific to this project is worth sending upstream too;
+local edits to kit files can conflict on `uvx copier update`.
+
+**Put facts where they belong.**
+
+| To change | Edit |
+| --- | --- |
+| A convention (how we name, test, validate, style) | The area's `Agents.md` or `CLAUDE.md`. Every agent reads those. |
+| A workspace, check command, doc location, reviewer mapping, or persona | `.claude/reference/project.md` |
+| How the tracker is used | `.claude/reference/tracker.md` (or switch trackers with Copier) |
+| How a step is done, or who does it | The skill, role, or subagent file |
+
+**Adding a skill.** Create `.claude/skills/<name>/SKILL.md`:
+
+```yaml
+---
+name: <name>
+description: "What it does and when to run it. The model uses this to decide when the skill applies, so say when not to use it too."
+argument-hint: "<what to pass>"
+model: sonnet            # optional: the model when a person types the command
+effort: high             # optional
+disable-model-invocation: true   # optional: only a person can start it (as /offshore)
+---
+```
+
+Keep `disable-model-invocation` off for any skill `/offshore` calls: it blocks the Skill
+tool, too.
+
+**Subagent or role?**
+
+| Make it a subagent when | Make it a role when |
+| --- | --- |
+| It must judge work it didn't watch being made (review, audit) | It builds on what the orchestrator just did |
+| Its input is large and its output small (a report, a verdict) | It needs the whole conversation so far |
+| It needs a different model or fewer tools | The orchestrator's model and tools are fine |
+
+A subagent is `.claude/agents/<name>.md`:
+
+```yaml
+---
+name: <name>
+description: "Spawned by /<skill> Step <N>. What it checks and what it returns."
+tools: Read, Grep, Glob          # least privilege; reviewers never get Edit or Write
+model: opus
+effort: high
+---
+```
+
+Then add it to the calling skill's team table and spawn step, with the inline fallback
+("If the Agent tool isn't available to you, read `.claude/agents/<name>.md` and apply it
+inline"). Descriptions cite step numbers; renumbering a skill means updating them.
+
+A role is a plain Markdown file in `.claude/roles/<skill>/`: personality, process,
+checklist, and output format. The skill reads it each time it switches to it.
+
+**Before you merge a kit change:**
+
+- After touching the hook: `bash .claude/hooks/test-guardrails.sh`.
+- Check that Claude Code still loads everything: start a new session and run `/agents`,
+  or `claude -p "List the custom subagents and skills from this project"`.
+- Run the changed skill on a real, small change and read what it produced.
+
+## Troubleshooting
+
+| Symptom | Cause and fix |
+| --- | --- |
+| Commands are blocked with `OFFSHORE GUARDRAIL` but no run is going | A run died and left `.offshore/active`. Delete it. |
+| Every check command asks for permission | The workspace isn't trusted yet, so `.claude/settings.json` is ignored. Restart Claude Code here and accept the prompt. |
+{%- if tracker != "none" %}
+| A skill reports `SKIPPED — tracker unavailable` | The tracker couldn't be reached after retries.{% if tracker == "linear" %} Re-authenticate with `/mcp`.{% elif tracker == "github" %} Check `gh auth status` or the GitHub connection.{% endif %} Re-run the step; skills search before they create, so nothing is duplicated. |
+| A skill says a label is missing | Create it in the tracker; skills don't invent labels. |
+{%- endif %}
+| Story tests fail to launch a browser | `npx playwright install chromium`, or set `CHROMIUM_EXECUTABLE_PATH`. |
+| An agent contradicts a guide | The guide wins. Point the agent at it, and if the kit caused it, fix the kit file. |

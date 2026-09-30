@@ -1,0 +1,118 @@
+/*
+ * Design tokens and base styles for every app.
+ *
+ * Apps import this after Tailwind:
+ *   @import 'tailwindcss';
+ *   @import '@app/ui-kit/styles.css';
+ *
+ * Use the semantic utilities (bg-background, text-muted-foreground,
+ * bg-primary, border-border, ...). Never use raw palette colors such as
+ * bg-gray-900: the semantic ones switch correctly between light and dark.
+ */
+
+/* Scan the kit's components for class names wherever this file is imported. */
+@source './';
+
+/* Dark mode follows a `dark` class on <html> (set by ThemeProvider). */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-foreground: var(--surface-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+/* Text/background pairs meet WCAG AA (4.5:1) in both themes. */
+:root {
+  color-scheme: light;
+  --radius: 0.5rem;
+  --background: oklch(0.985 0.002 250);
+  --foreground: oklch(0.21 0.02 260);
+  --surface: oklch(1 0 0);
+  --surface-foreground: oklch(0.21 0.02 260);
+  --muted: oklch(0.955 0.005 255);
+  --muted-foreground: oklch(0.45 0.02 260);
+  --primary: oklch(0.47 0.18 265);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.94 0.01 260);
+  --secondary-foreground: oklch(0.21 0.02 260);
+  --destructive: oklch(0.5 0.2 27);
+  --destructive-foreground: oklch(0.99 0 0);
+  --success: oklch(0.48 0.12 150);
+  --success-foreground: oklch(0.99 0 0);
+  --border: oklch(0.9 0.01 260);
+  --input: oklch(0.72 0.02 260);
+  --ring: oklch(0.55 0.18 265);
+}
+
+.dark {
+  color-scheme: dark;
+  --background: oklch(0.17 0.015 265);
+  --foreground: oklch(0.96 0.005 260);
+  --surface: oklch(0.21 0.015 265);
+  --surface-foreground: oklch(0.96 0.005 260);
+  --muted: oklch(0.26 0.015 265);
+  --muted-foreground: oklch(0.74 0.02 260);
+  --primary: oklch(0.74 0.13 265);
+  --primary-foreground: oklch(0.18 0.02 265);
+  --secondary: oklch(0.28 0.02 265);
+  --secondary-foreground: oklch(0.96 0.005 260);
+  --destructive: oklch(0.7 0.17 25);
+  --destructive-foreground: oklch(0.16 0.02 25);
+  --success: oklch(0.74 0.13 150);
+  --success-foreground: oklch(0.16 0.02 150);
+  --border: oklch(0.3 0.015 265);
+  --input: oklch(0.5 0.02 265);
+  --ring: oklch(0.74 0.13 265);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background font-sans text-foreground antialiased;
+  }
+
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-ring;
+  }
+
+  /* Tailwind 4's preflight gives buttons the default cursor; keep the pointer. */
+  button:not(:disabled),
+  [role='button']:not(:disabled) {
+    cursor: pointer;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}

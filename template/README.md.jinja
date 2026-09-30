@@ -1,0 +1,89 @@
+# {{ project_name }}
+
+{{ project_description }}
+
+Generated from the [fullstack template](https://github.com/sababado/fullstack-template-rep).
+`copier update` pulls in later template improvements (see [Updating from the template](#updating-from-the-template)).
+
+## Stack
+
+| Layer | Technology |
+| --- | --- |
+| Web app | React 19, Vite 8, React Router 8, TanStack Query 5, react-i18next (ICU), TypeScript 6 |
+| Design system | Tailwind CSS 4, Radix primitives, Storybook 10 with accessibility tests |
+| API | Python 3.14, FastAPI, SQLAlchemy 2.1 (async), Alembic, Pydantic 2 |
+| Data | PostgreSQL 18 (RDS in AWS, Docker locally) |
+| Auth | Amazon Cognito (hosted sign-in, authorization code + PKCE), JWT authorizer on API Gateway |
+| AWS | API Gateway HTTP API, Lambda (arm64, SnapStart), RDS, S3 + CloudFront, deployed with SAM |
+| Tooling | npm workspaces, uv, ESLint 10, Prettier, ruff, mypy, Vitest 5, pytest, GitHub Actions |
+
+## Quick start
+
+You need Node 24, [uv](https://docs.astral.sh/uv/), and Docker.
+
+```bash
+npm ci
+(cd apps/backend && uv sync && cp .env.example .env)
+docker compose up -d db
+(cd apps/backend && uv run alembic upgrade head)
+npm run dev
+```
+
+Open http://localhost:5173. Locally everyone is signed in as a fixed developer user,
+so no AWS account is needed. The full walkthrough is in
+[docs/dev_guides/onboarding/1_FIRST_TIME_SETUP.md](docs/dev_guides/onboarding/1_FIRST_TIME_SETUP.md).
+
+## Commands
+
+| Command | What it does |
+| --- | --- |
+| `npm run dev` | API on :8000 and web app on :5173 with hot reload |
+| `npm run storybook` | UI kit component explorer on :6006 |
+| `npm run lint` / `npm run format` | ESLint and Prettier for all TypeScript |
+| `npm run typecheck` | TypeScript in every workspace |
+| `npm test` | Unit tests in every workspace, with coverage floors |
+| `npm run test:stories -w @app/ui-kit` | Every story in Chromium with axe accessibility checks |
+| `npm run gen:api` | Regenerate `apps/backend/openapi.json` and the frontend API types |
+| `cd apps/backend && uv run pytest` | Backend unit and integration tests |
+| `cd apps/backend && uv run ruff check . && uv run mypy && uv run lint-imports` | Backend lint, types, and import rules |
+
+## Layout
+
+```
+apps/
+  backend/        FastAPI app, migrations, tests, SAM templates (template.yaml, infra/)
+  frontend/       React app and its hosting template (template.yaml)
+packages/
+  ui-kit/         Design system: tokens, components, Storybook
+  shared/         Non-UI TypeScript shared by apps: API errors, query client, test helpers
+infra/            One-time AWS account bootstrap (GitHub deploy role)
+docs/             Architecture, decisions, security, guides, runbooks
+.implementation_plans/  Phased plans for features in progress
+.github/          CI, deploy, CodeQL, dependency audit, Dependabot
+```
+
+## Documentation
+
+- [Architecture](docs/architecture.md): how requests, auth, and deploys flow
+- [Contributing](docs/CONTRIBUTING.md): workflow for people and for AI agents
+- [New feature checklist](docs/NewFeatureChecklist.md)
+- [Security](docs/SECURITY.md) · [Versioning](docs/VERSIONING.md) · [Decisions](docs/decisions/README.md)
+- [AWS bootstrap and first deploy](docs/runbooks/aws-bootstrap.md)
+- Area guides: [backend](apps/backend/docs/Agents.md), [frontend](apps/frontend/docs/Agents.md),
+  [UI kit](packages/ui-kit/docs/Agents.md), [shared](packages/shared/docs/Agents.md)
+
+## Deploying
+
+Pushing to `develop`, `staging`, or `main` deploys to dev, staging, or prod through
+GitHub Actions with short-lived AWS credentials (OIDC). Set up an AWS account once
+with [docs/runbooks/aws-bootstrap.md](docs/runbooks/aws-bootstrap.md).
+
+## Updating from the template
+
+```bash
+uvx copier update --trust
+```
+
+Copier replays your answers (stored in `.copier-answers.yml`) against the newest
+template and merges the changes. Review the diff, resolve any conflicts, then run
+`npm install` and `(cd apps/backend && uv lock)` to refresh the lockfiles.

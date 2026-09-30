@@ -1,0 +1,177 @@
+# CI for the template itself: render it with different answers, then run a generated
+# project's full check suite. A change to template/ is only good if generated projects
+# still pass their own CI.
+name: Template CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: template-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  COPIER_VERSION: '9.18.2'
+
+jobs:
+  render:
+    name: Render (${{ matrix.name }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        # One answer per line, KEY=VALUE. Values may contain spaces and quotes.
+        include:
+          - name: github tracker, Claude review
+            answers: |
+              tracker=github
+              include_claude_review=true
+          - name: linear tracker, no review
+            answers: |
+              tracker=linear
+              tracker_key=ACME
+              include_claude_review=false
+          - name: no tracker, quoted name
+            answers: |
+              project_name=Bob's Lab
+              tracker=none
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v7
+      - name: Render
+        env:
+          ANSWERS: ${{ matrix.answers }}
+        run: |
+          # One -d flag per line, each kept as a single argument.
+          data=()
+          while IFS= read -r answer; do
+            if [ -n "$answer" ]; then data+=(-d "$answer"); fi
+          done <<< "$ANSWERS"
+          uvx "copier==$COPIER_VERSION" copy --trust --defaults --vcs-ref HEAD \
+            -d "project_name=Acme Portal" -d github_repository=acme/acme-portal "${data[@]}" \
+            . /tmp/project
+      - name: No leftover template syntax, right optional files
+        run: python3 scripts/check_render.py /tmp/project
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: template/.nvmrc
+      # Rendered values (names with quotes, tracker text) must still pass Prettier.
+      - name: Formatting of rendered files
+        working-directory: /tmp/project
+        run: npm ci --ignore-scripts --no-audit --no-fund && npx prettier --check .
+
+  project:
+    name: Generated project checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: app
+          POSTGRES_PASSWORD: app
+          POSTGRES_DB: app_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U app -d app_test" --health-interval 2s
+          --health-timeout 5s --health-retries 20
+    env:
+      TEST_DATABASE_URL: postgresql+asyncpg://app:app@localhost:5432/app_test
+    defaults:
+      run:
+        working-directory: /tmp/project
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: template/.nvmrc
+      - name: Render
+        working-directory: ${{ github.workspace }}
+        run: |
+          uvx "copier==$COPIER_VERSION" copy --trust --defaults --vcs-ref HEAD \
+            -d "project_name=Acme Portal" -d github_repository=acme/acme-portal \
+            . /tmp/project
+      - name: Install
+        run: npm ci && (cd apps/backend && uv sync --locked)
+      - name: Backend lint, types, import contracts
+        working-directory: /tmp/project/apps/backend
+        run: uv run ruff check . && uv run ruff format --check . && uv run mypy && uv run lint-imports
+      - name: Backend tests
+        working-directory: /tmp/project/apps/backend
+        run: uv run pytest --cov
+      - name: Lambda requirements match uv.lock
+        working-directory: /tmp/project/apps/backend
+        run: |
+          uv export --frozen --no-dev --no-emit-project --quiet -o /tmp/requirements.txt
+          diff <(grep -v '^#' src/requirements.txt) <(grep -v '^#' /tmp/requirements.txt)
+      - name: API contract and generated types are current
+        run: |
+          cp apps/backend/openapi.json /tmp/openapi.json
+          cp apps/frontend/src/core/api/schema.d.ts /tmp/schema.d.ts
+          npm run gen:api
+          diff /tmp/openapi.json apps/backend/openapi.json
+          diff /tmp/schema.d.ts apps/frontend/src/core/api/schema.d.ts
+      - name: Lint, typecheck, unit tests, build
+        run: npm run lint && npm run typecheck && npm test && npm run build
+      - name: UI kit story tests (Chromium + axe)
+        run: npx playwright install --with-deps chromium && npm run test:stories -w @app/ui-kit
+      - name: Storybook build
+        run: npm run build-storybook -w @app/ui-kit
+      - name: Infrastructure templates
+        run: >-
+          uvx cfn-lint==1.57.1 apps/backend/template.yaml apps/backend/infra/*.yaml
+          apps/frontend/template.yaml infra/*.yaml
+      - name: Workflows
+        run: |
+          bash <(curl -sSfL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.12/scripts/download-actionlint.bash) 1.7.12
+          ./actionlint -color .github/workflows/*.yml
+
+  sam-build:
+    name: Lambda package builds
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version-file: template/apps/backend/.python-version
+      - uses: aws-actions/setup-sam@v3
+        with:
+          use-installer: true
+          version: 1.166.2
+      - name: Render and build
+        run: |
+          uvx "copier==$COPIER_VERSION" copy --trust --defaults --vcs-ref HEAD \
+            -d "project_name=Acme Portal" -d github_repository=acme/acme-portal \
+            . /tmp/project
+          cd /tmp/project/apps/backend && sam build --parallel
+
+  template-ci:
+    name: Template CI
+    if: ${{ !cancelled() }}
+    needs: [render, project, sam-build]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Summarize
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "Job results: $RESULTS"
+          for result in $RESULTS; do
+            if [ "$result" != success ]; then exit 1; fi
+          done

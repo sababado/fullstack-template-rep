@@ -1,0 +1,10 @@
+node_modules/
+dist/
+coverage/
+storybook-static/
+package-lock.json
+apps/backend/
+apps/frontend/src/core/api/schema.d.ts
+.aws-sam/
+*.md
+.copier-answers.yml

@@ -1,0 +1,82 @@
+# Runbook: set up AWS and deploy for the first time
+
+Do this once per AWS account. If dev, staging, and prod use separate accounts, repeat
+steps 1 and 2 in each.
+
+## 1. Deploy the bootstrap stack
+
+With admin credentials for the account:
+
+```bash
+aws cloudformation deploy \
+  --template-file infra/bootstrap.yaml \
+  --stack-name {{ project_slug }}-bootstrap \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --region {{ aws_region }}
+```
+
+If the account already has a GitHub OIDC provider (another project created it), add
+`--parameter-overrides CreateGitHubOidcProvider=false`.
+
+Read the outputs:
+
+```bash
+aws cloudformation describe-stacks --stack-name {{ project_slug }}-bootstrap \
+  --query "Stacks[0].Outputs" --output table --region {{ aws_region }}
+```
+
+## 2. Configure GitHub
+
+In **Settings → Environments**, create `dev`, `staging`, and `prod`. For each, add
+these **variables** (not secrets; none of them is sensitive):
+
+| Variable | Value |
+| --- | --- |
+| `AWS_REGION` | `{{ aws_region }}` |
+| `AWS_DEPLOY_ROLE_ARN` | bootstrap output `DeployRoleArn` |
+| `AWS_CFN_EXECUTION_ROLE_ARN` | bootstrap output `CloudFormationExecutionRoleArn` |
+| `SAM_ARTIFACTS_BUCKET` | bootstrap output `ArtifactsBucketName` |
+| `ALERT_EMAIL` | optional: where alarms go |
+
+Then set **deployment branches** for each environment: `dev` ← `develop`,
+`staging` ← `staging`, `prod` ← `main`. Add required reviewers to `prod` if every
+production deploy should need approval.
+
+In **Settings → Branches** (or rulesets), protect `develop`, `staging`, and `main`:
+require a PR and the `PR check` status check.
+{%- if include_claude_review %}
+
+For the automated review, add the repository **secret** `CLAUDE_CODE_OAUTH_TOKEN`
+(create it with `claude setup-token`).
+{%- endif %}
+
+## 3. Deploy
+
+Push to `develop` (or run the **Deploy** workflow by hand and pick `dev`). The first run
+takes about 20 minutes, mostly creating the database.
+
+If you set `ALERT_EMAIL`, confirm the subscription email AWS sends, or alarms won't arrive.
+
+## 4. Create the first user
+
+Sign-up is by invitation. Follow [user-management.md](user-management.md) to invite
+yourself and add yourself to the `admin` group, then open the `WebsiteUrl` output of
+`{{ project_slug }}-frontend-dev`.
+
+## 5. Optional: custom domain
+
+1. Request an ACM certificate for the domain **in us-east-1** (CloudFront requirement)
+   and validate it.
+2. Add `DomainName=<domain> CertificateArn=<arn>` to `parameter_overrides` for that
+   environment in `apps/frontend/samconfig.toml` and deploy.
+3. Point the domain at the distribution (Route 53 alias or a CNAME to the CloudFront
+   domain).
+
+## Troubleshooting
+
+| Symptom | Likely cause |
+| --- | --- |
+| `Not authorized to perform sts:AssumeRoleWithWebIdentity` | The job's environment isn't `dev`, `staging`, or `prod`, or the repository name in the bootstrap stack is wrong |
+| Stack fails on `AWS::IAM::Role` | A resource name doesn't start with `{{ project_slug }}-` (the execution role can only manage those) |
+| Migrations step fails | Read the logs of `{{ project_slug }}-<env>-migrate` in CloudWatch |
+| Browser shows CORS errors | `FrontendUrl` doesn't match the page's origin (custom domain added without redeploying the backend) |

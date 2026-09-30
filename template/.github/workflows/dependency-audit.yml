@@ -1,0 +1,43 @@
+# Known-vulnerability scan of dependencies. Runs when a manifest or lockfile
+# changes and weekly. Not a required check: with path filters, a PR that
+# touches no manifest never starts it.
+name: Dependency audit
+
+on:
+  pull_request:
+    paths:
+      - 'package.json'
+      - 'package-lock.json'
+      - 'apps/*/package.json'
+      - 'packages/*/package.json'
+      - 'apps/backend/pyproject.toml'
+      - 'apps/backend/uv.lock'
+  schedule:
+    - cron: '41 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  npm:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+      # Fails on high or critical advisories. For an advisory with no fix yet,
+      # pin a patched transitive version with "overrides" in package.json.
+      - run: npm audit --audit-level=high
+
+  python:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+      # Audits what ships to Lambda (src/requirements.txt, exported from uv.lock).
+      # To accept an advisory, add `--ignore-vuln <ID>` with a comment and a revisit date.
+      - run: uvx pip-audit==2.10.1 --strict --disable-pip -r apps/backend/src/requirements.txt
