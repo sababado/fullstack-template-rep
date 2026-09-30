@@ -1,0 +1,106 @@
+# Tracker adapter
+
+Skills never talk to an issue tracker directly; they run the operations below. This
+file was generated for the tracker chosen when the project was created
+({% if tracker == "linear" %}**Linear**{% elif tracker == "github" %}**GitHub Issues**{% else %}**none: stories live in files**{% endif %}).
+To switch trackers, change `tracker` in `.copier-answers.yml` and run
+`uvx copier update --trust`.
+
+## Terms
+
+- **Epic**: one feature, made of stories. A plan in `.implementation_plans/` implements one epic.
+- **Story**: one releasable, user-visible change, with acceptance criteria.
+- **Story fields**: title, persona (from `project.md`), narrative ("As a ..., I want ...,
+  so that ..."), acceptance criteria (Given/When/Then), priority (must, should, could),
+  size (S, M, L), uncertainty (low, med, high).
+
+## Story body format
+
+Every tracker stores the story description in this shape:
+
+```markdown
+## Story
+As a <persona>, I want <capability>, so that <outcome>.
+
+## Acceptance Criteria
+- [ ] Given <context>, when <action>, then <result>.
+- [ ] ...
+
+## Notes
+Constraints, links, open questions.
+```
+
+{% if tracker == "linear" -%}
+## Linear
+
+Linear is reached through its MCP server (`.mcp.json` configures it as `linear`;
+connect it once with `/mcp`). Tool names look like `mcp__linear__get_issue`; if they
+differ, find them with ToolSearch ("linear"). Team key: **`{{ tracker_key }}`**.
+
+| Operation | How |
+| --- | --- |
+| 1. Search epics | `list_projects` with a keyword query; read candidates with `get_project`. |
+| 2. Create epic | `save_project` (name, description with the summary and out-of-scope list, team `{{ tracker_key }}`). Record the project's UUID. |
+| 3. Create story | `save_issue` with `team: {{ tracker_key }}`, `project: <epic UUID>`, `title`, `description` (story body format), `priority` (must=2 High, should=3 Medium, could=4 Low), `estimate` (S=1, M=2, L=3), labels: the persona and `uncertainty/<low|med|high>`. |
+| 4. Fetch story | `get_issue` with the ID (for example `{{ tracker_key }}-12`). Returns title, description, state, and project. |
+| 5. List epic stories | `list_issues` filtered by the project. |
+| 6. Story belongs to epic? | The issue's project ID equals the plan's `project:` UUID. |
+| 7. Story is closed? | `state.type` is `completed` or `canceled`. |
+
+- **Story ID format:** `{{ tracker_key }}-<number>`, regex `^{{ tracker_key }}-\d+$`.
+- **Plan front matter:** `project: <Linear project UUID>`; phases list story IDs in `implements`.
+- **Closing a story:** the commit or PR that finishes it contains `Closes {{ tracker_key }}-12`
+  (comma lists work: `Closes {{ tracker_key }}-12, {{ tracker_key }}-13`). Partial work uses
+  `Refs {{ tracker_key }}-12`. Linear's GitHub integration moves the issue when the PR merges.
+- **Labels:** persona and uncertainty labels must exist in Linear before use; if one is
+  missing, tell the user to create it (Settings → Labels) instead of inventing another.
+{%- elif tracker == "github" -%}
+## GitHub Issues
+
+Stories and epics are issues in `{{ github_repository }}`, reached with the GitHub MCP
+tools (`mcp__github__*`) or the `gh` CLI, whichever this session has.
+
+| Operation | How |
+| --- | --- |
+| 1. Search epics | Search open issues labeled `epic` for keywords (`search_issues` with `repo:{{ github_repository }} label:epic <keywords>`, or `gh issue list --label epic --search`). |
+| 2. Create epic | Create an issue labeled `epic`: title, body with the summary and out-of-scope list. Record its number. |
+| 3. Create story | Create an issue labeled `story` plus `persona:<name>`, `priority:<must|should|could>`, `size:<S|M|L>`, `uncertainty:<low|med|high>`, body in the story body format. Then add it as a sub-issue of the epic (`sub_issue_write`, or `gh issue edit --add-parent` if available); if sub-issues aren't available, add `Part of #<epic>` to the body. |
+| 4. Fetch story | Read the issue by number (`issue_read` / `gh issue view <n> --json`). |
+| 5. List epic stories | The epic's sub-issues, or issues whose body says `Part of #<epic>`. |
+| 6. Story belongs to epic? | It is a sub-issue of the epic (or says `Part of #<epic>`) and has the `story` label. |
+| 7. Story is closed? | The issue state is `closed`. |
+
+- **Story ID format:** the issue number, regex `^\d+$` (write `#12` in prose).
+- **Plan front matter:** `epic: <epic issue number>`; phases list story numbers in `implements`.
+- **Closing a story:** the PR that finishes it says `Closes #12` (one per line). Partial
+  work says `Refs #12`. GitHub closes the issue when the PR merges into the default branch.
+- **Labels:** create missing labels once (`gh label create story`, `epic`, `persona:<name>`, ...).
+{%- else -%}
+## No tracker: stories in files
+
+Stories live next to the plan, in `.implementation_plans/<plan>/STORIES.md`. The plan's
+`README.md` is the epic.
+
+| Operation | How |
+| --- | --- |
+| 1. Search epics | Read the `README.md` of every folder in `.implementation_plans/` (including `DONE/`) and `docs/feature-map.md`. |
+| 2. Create epic | Create `.implementation_plans/<plan>/README.md` with front matter `plan:` and `stories: STORIES.md`, and a summary and out-of-scope list. |
+| 3. Create story | Append to `STORIES.md` a section `## S<n>: <title>` followed by a fields line (`Persona: ... · Priority: ... · Size: ... · Uncertainty: ... · Status: open`) and the story body format. Number stories S1, S2, ... within the plan. |
+| 4. Fetch story | Read the `## S<n>` section of the plan's `STORIES.md`. |
+| 5. List epic stories | Every `## S<n>` section in `STORIES.md`. |
+| 6. Story belongs to epic? | It appears in that plan's `STORIES.md`. |
+| 7. Story is closed? | Its `Status:` is `done` or `dropped`. |
+
+- **Story ID format:** `S<number>`, regex `^S\d+$`; outside the plan write `<plan>#S3`.
+- **Plan front matter:** `stories: STORIES.md`; phases list story IDs in `implements`.
+- **Closing a story:** the PR that finishes it says `Closes <plan>#S3` in its description,
+  and the same PR sets that story's `Status: done` in `STORIES.md`. Partial work says `Refs`.
+- Commit `STORIES.md` changes with the plan.
+{%- endif %}
+
+## When the tracker can't be reached
+
+A tool error or timeout is not a verdict about the story. Retry up to three times with
+backoff. If it still fails, continue without the tracker, mark the affected checks
+`SKIPPED — tracker unavailable`, and say so in your report. Never create duplicate
+epics or stories to work around an error: search first.
