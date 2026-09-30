@@ -106,8 +106,8 @@ For each step in the manifest, in order:
 - Write tests and strings in the same step as the code, not afterwards.
 - **Hook wiring rule:** when a step connects a query hook to a component, write at least
   one test that renders the component through `renderApp` with `mockApi` returning a
-  body that matches the generated response type (read `Schemas[...]` in
-  `apps/frontend/src/core/api/schema.d.ts` or the backend schema; don't guess), and
+  body that matches the generated response type (read it in
+  `apps/frontend/src/core/api/schema.d.ts`, or the backend schema; don't guess), and
   assert what renders. A test that passes hand-made props to the component doesn't
   cover the step from hook data to props.
 
@@ -238,13 +238,10 @@ review catches wiring and integration bugs.
 
 ## Step 12: Close out
 
-**12a. Changelog.** If the change is user-visible, add one line under `## [Unreleased]`
-in `CHANGELOG.md`, in the right section (Added, Changed, Deprecated, Removed, Fixed,
-Security). Add lines near the top of the section only. Never rewrite or reorder older
-entries, create a version heading, or bump a version (`docs/VERSIONING.md`).
-Internal-only changes (refactors, CI, tests) need no entry.
+Don't edit `CHANGELOG.md` here: `/write-docs` adds the entry (see Next steps in Step 13).
+Never bump a version or create a version heading.
 
-**12b. Phase status** (plan-based builds only). A merged PR that leaves its phase not
+**12a. Phase status** (plan-based builds only). A merged PR that leaves its phase not
 marked `Done` is a defect.
 
 1. **Phase doc:** set its Status to `Done`. Mirror the format sibling `Done` phases in
@@ -257,7 +254,7 @@ This step does not touch sibling phase docs, flip any other phase (even one this
 unblocks), write a retrospective, move the plan to `DONE/` (that happens with the
 release), or push.
 
-**12c. Story keywords and the closing commit.** Read the phase doc's `implements` list.
+**12b. Story keywords and the closing commit.** Read the phase doc's `implements` list.
 The plan README's Stories section says which phase finishes each story.
 
 | Story | Keyword |
@@ -270,13 +267,14 @@ The plan README's Stories section says which phase finishes each story.
 - `implements: []` (an infrastructure-only phase) gets no keywords.
 - A bare mention of an ID doesn't count; only the keywords do.
 
-Commit the Step 12 changes as one commit, `docs(<plan>): mark phase <N> done`, with the
-keyword lines in its body. For an ad-hoc build that names stories, put the keywords in
-the body of your final commit instead. If nothing changed in Step 12 (the doc was
-already `Done`, no changelog entry needed) and the keywords are already on a commit,
-skip the commit and say so in the report. If the delivery commits were already pushed
-without the keywords, add them with an empty commit:
-`git commit --allow-empty -m "chore: tag delivery" -m "Closes <id>"`.
+Commit the status changes (and any story-file edit that rule requires) as one separate
+commit, `docs(<plan>): mark phase <N> done`, with the keyword lines in its body, so
+reviewers can scan it on its own. For an ad-hoc
+build that names stories, put the keywords in the body of your final commit instead. If
+the phase doc was already `Done` and the keywords are already on a commit, skip the
+commit and say so in the report, so the person can check the doc state by hand. If the
+delivery commits were already pushed without the keywords, add them with an empty
+commit: `git commit --allow-empty -m "chore: tag delivery" -m "Closes <id>"`.
 
 The PR description repeats the same keyword lines in its Closes section.
 
@@ -322,6 +320,8 @@ its acceptance criterion; a check is PASS only if you ran it.
 
 ### Next steps
 - Run `/review` for a formal review (ask for "3 cycles" on high-risk changes)
+- Run `/write-docs` if the change is user-visible or changes how something works: it adds
+  the `CHANGELOG.md` entry and updates the docs
 - Open a PR against `develop` and fill in every section of the template; a person merges it
 ```
 

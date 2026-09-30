@@ -41,8 +41,8 @@ changes). Map them to workspaces with the Workspaces table in
 ### 1. Automated checks
 
 Run the Checks column for every touched workspace, from the repo root, exactly as
-written there. When the change touches more than one workspace, or touches the API, run
-the full check suite in `project.md` instead.
+written there. When the change touches more than one workspace that has checks, or
+touches the API, run the full check suite in `project.md` instead.
 
 After any backend schema or route change, also run `npm run gen:api` and
 `git diff --exit-code apps/backend/openapi.json apps/frontend/src/core/api/schema.d.ts`.

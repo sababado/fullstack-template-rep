@@ -82,7 +82,8 @@ Keep the file list; Step 5 uses it.
 `README.md` Phase tracker: the current phase is the first row not marked `Done`.
 Cross-check with any phase number in the branch name.
 
-**4c. Read the phase doc** (`phase-<N>-<slug>.md`). Extract:
+**4c. Read the phase doc** (`phase-<N>-<slug>.md`, or whichever file in the plan folder
+carries that phase number). Extract:
 
 - **Deliverables:** the numbered list under Deliverables
 - **Acceptance criteria**
@@ -249,7 +250,8 @@ The prompt must:
    and their findings were addressed before you started. You're reviewing the current
    state of the branch: what's still wrong, or what they missed."
 3. Contain **none** of your reasoning, your findings, earlier cycles' findings, or hints
-   about where to look.
+   about where to look in this diff. The focus areas below are generic categories; keep
+   them generic.
 
 **Middle cycles** (cycle 2 of 3, for example): "This is independent review pass <N>. The
 earlier passes ran and their fixes are applied. Find what's still wrong or what they

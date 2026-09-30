@@ -107,9 +107,8 @@ misses this when a default value satisfies the checker.
 - [ ] No `dangerouslySetInnerHTML` with data from users.
 - [ ] Input limits come from a `limits.ts` that matches the backend constants, covered
       by a contract test against `openapi.json` (see `features/notes/`).
-- [ ] Config is read only through `core/config/env.ts` (Accepted decision 0001,
-      invariant 3). A new variable is added to `vite-env.d.ts`, `env.ts`, `.env.example`,
-      and the deploy workflow.
+- [ ] Config is read only through `core/config/env.ts`. A new variable is added to
+      `vite-env.d.ts`, `env.ts`, `.env.example`, and the deploy workflow.
 - [ ] No secrets in frontend config: every `VITE_*` value ships to the browser.
 - [ ] Tokens and personal data are never logged or written to new storage.
 - [ ] Hiding a control is not authorization. The backend enforces it; the UI only

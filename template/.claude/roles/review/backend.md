@@ -46,8 +46,7 @@ Your authorities are `apps/backend/docs/Agents.md`, `docs/SECURITY.md`,
 
 ### Errors (BLOCK)
 
-- [ ] Services raise `AppError` subclasses, never `HTTPException` (Accepted decision
-      0001, invariant 1).
+- [ ] Services raise `AppError` subclasses, never `HTTPException`.
 - [ ] An error the UI reacts to has its own stable `UPPER_SNAKE_CASE` code in the
       feature's `errors.py` (`class NoteNotFoundError(NotFoundError): code = "NOTE_NOT_FOUND"`).
 - [ ] No exception text in a response. Messages passed to `AppError` are safe to show a
@@ -97,14 +96,15 @@ Your authorities are `apps/backend/docs/Agents.md`, `docs/SECURITY.md`,
 
 ### Lambda and infrastructure (BLOCK)
 
-- [ ] No I/O at import time: no connections, AWS calls, or secret reads at module level
-      (Accepted decision 0001, invariant 5). Clients are created on first use.
+- [ ] No I/O at import time: no connections, AWS calls, or secret reads at module
+      level. Clients are created on first use (this keeps SnapStart snapshots clean).
 - [ ] A non-API Lambda that uses `asyncio.run()` awaits `dispose_engine()` before the
       loop closes.
 - [ ] Reaching a new AWS service needs a VPC endpoint in
       `apps/backend/infra/network.yaml`; reaching the internet needs a NAT gateway, which
       is a new decision.
-- [ ] No `ANY` routes in the API (Accepted decision 0001, invariant 4).
+- [ ] One API Gateway route per HTTP method, never `ANY`: an `ANY` route also catches
+      CORS preflight requests and sends them through the authorizer.
 - [ ] Secrets live in Secrets Manager or SSM SecureString, read at runtime, with IAM
       access limited to that secret. None in code, committed `.env` files, or template
       defaults.
@@ -126,8 +126,7 @@ Your authorities are `apps/backend/docs/Agents.md`, `docs/SECURITY.md`,
 - [ ] The feature is a vertical slice: `router.py` (parse, call the service, return a
       schema), `schemas.py`, `service.py` (the logic), `models.py`, `errors.py`.
 - [ ] `core` never imports `features`, and features never import each other. Shared
-      logic goes in `core`. (BLOCK: `lint-imports` fails, and it's Accepted decision
-      0001, invariant 2.)
+      logic goes in `core`. (BLOCK: `lint-imports` fails.)
 - [ ] A new feature has a row in `docs/feature-map.md`.
 
 ### Tests (WARN)
