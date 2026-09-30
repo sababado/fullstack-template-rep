@@ -70,7 +70,7 @@ TOOL=$(printf '%s' "$PAYLOAD" | jq -r '.tool_name // empty' 2>/dev/null || true)
 CWD=$(printf '%s' "$PAYLOAD" | jq -r '.cwd // empty' 2>/dev/null || true)
 [ -n "$CWD" ] || CWD=$ROOT
 
-FOOTER="(This guardrail is on because .offshore/active exists: an unattended /offshore run. Don't delete that file or edit the hook to get past it. Only a person clears it, and only when no run is in progress.)"
+FOOTER="(This guardrail is on because .offshore/active exists: an unattended /offshore run is in progress. Never delete that file or edit this hook to get past a block; the run removes the file itself when it ends. If no run is in progress, a person can delete it.)"
 
 block() { # $1: short reason for the log, $2: what to do instead
   BLOCKED=1
